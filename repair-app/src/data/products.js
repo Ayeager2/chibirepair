@@ -5,7 +5,7 @@ export async function listProducts() {
     s
       .from("inventory_view")
       .select("*")
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: false }),
   );
 
   if (error) throw error;
@@ -16,8 +16,7 @@ export async function listProducts() {
 export async function createProduct(userId, payload) {
   const insert = {
     owner_id: userId,
-    description: (payload.description || "").trim(), // <-- FIXED
-
+    description: (payload.description || "").trim(),
     sku: payload.sku?.trim() || null,
     cost: Number(payload.cost || 0),
     price: Number(payload.price || 0),
@@ -41,4 +40,51 @@ export async function createProduct(userId, payload) {
 export async function deleteProduct(id) {
   const { error } = await db((s) => s.from("products").delete().eq("id", id));
   if (error) throw error;
+}
+function applyProductSearch(query, search) {
+  const trimmed = (search || "").trim();
+
+  if (!trimmed) return query;
+
+  return query.or(
+    [
+      `description.ilike.%${trimmed}%`,
+      `sku.ilike.%${trimmed}%`,
+      `device_label.ilike.%${trimmed}%`,
+    ].join(","),
+  );
+}
+
+export async function searchProductsForInvoice({
+  ownerId,
+  search = "",
+  limit = 20,
+} = {}) {
+  if (!ownerId) {
+    throw new Error("searchProductsForInvoice: ownerId is required");
+  }
+
+  const { data } = await db((s) => {
+    let query = s
+      .from("products")
+      .select(
+        `
+        id,
+        description,
+        sku,
+        price,
+        qty_on_hand,
+        device_label
+      `,
+      )
+      .eq("owner_id", ownerId)
+      .order("description", { ascending: true })
+      .limit(limit);
+
+    query = applyProductSearch(query, search);
+
+    return query;
+  });
+
+  return data || [];
 }
