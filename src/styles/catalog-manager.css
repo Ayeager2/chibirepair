@@ -1,5 +1,46 @@
 .catalog-page {
-  max-width: 1200px;
+  width: 100%;
+}
+
+.catalog-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.catalog-sidebar {
+  min-width: 0;
+}
+
+.catalog-main {
+  min-width: 0;
+}
+
+.catalog-sidebar-card {
+  position: sticky;
+  top: 1rem;
+}
+
+.catalog-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.catalog-filter-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+}
+
+.catalog-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .catalog-grid {
@@ -96,4 +137,87 @@ details.card > summary::-webkit-details-marker {
 
 details.card > summary {
   user-select: none;
+}
+
+.catalog-search-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0.85rem 0 1rem;
+}
+
+.catalog-search-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.catalog-add-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.catalog-add-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.catalog-accordion-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.catalog-accordion-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+}
+
+.card-header-panel {
+  margin-bottom: 1rem;
+}
+
+.catalog-filter-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.9rem;
+}
+
+.catalog-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 980px) {
+  .catalog-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-sidebar-card {
+    position: static;
+    top: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .catalog-search-row,
+  .catalog-add-row,
+  .catalog-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .catalog-accordion-toggle {
+    align-items: flex-start;
+  }
 }

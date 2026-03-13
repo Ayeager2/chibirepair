@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { listCategories, listConditions, listDeviceModels, listSources, listStatuses, listSubcategories, listVariants } from "@/data/lookups";
+import {
+  listCategories,
+  listConditions,
+  listDeviceModels,
+  listSources,
+  listStatuses,
+  listSubcategories,
+  listVariants,
+} from "@/data/lookups";
 
+import FieldError from "../ui/FieldError";
 
 const defaultValues = {
   description: "",
@@ -22,13 +31,7 @@ const defaultValues = {
   isForSale: true,
 };
 
-export default function InventoryEditModal({
-  isOpen,
-  item,
-  saving = false,
-  onClose,
-  onSave,
-}) {
+export default function InventoryEditModal({ isOpen, item, saving = false, onClose, onSave }) {
   const [loadingLookups, setLoadingLookups] = useState(false);
 
   const [categories, setCategories] = useState([]);
@@ -66,7 +69,7 @@ export default function InventoryEditModal({
       try {
         setLoadingLookups(true);
 
-        const [cats, conds, stats, srcs] = await Promise.all([
+        const [cats, conditions, statuses, sources] = await Promise.all([
           listCategories(),
           listConditions(),
           listStatuses(),
@@ -74,9 +77,9 @@ export default function InventoryEditModal({
         ]);
 
         setCategories(cats || []);
-        setConditions(conds || []);
-        setStatuses(stats || []);
-        setSources(srcs || []);
+        setConditions(conditions || []);
+        setStatuses(statuses || []);
+        setSources(sources || []);
       } catch (e) {
         alert(e?.message || "Failed to load lookup lists.");
       } finally {
@@ -177,12 +180,15 @@ export default function InventoryEditModal({
   }, [isOpen, deviceModelId]);
 
   async function submit(values) {
+    if (!item?.id) {
+      alert("Missing inventory item id.");
+      return;
+    }
     const cleanDesc = values.description.trim();
     const cleanSku = values.sku.trim();
 
     const costNum = Number(values.cost);
-    const priceNum =
-      values.price === "" || values.price == null ? null : Number(values.price);
+    const priceNum = values.price === "" || values.price == null ? null : Number(values.price);
     const qtyNum = parseInt(values.qty, 10);
 
     if (!cleanDesc) {
@@ -239,7 +245,7 @@ export default function InventoryEditModal({
   const watchedPrice = Number(price || 0);
   const watchedQty = Number(qty || 0);
 
-  if (!isOpen || !item) return null;
+  if (!isOpen || !item?.id) return null;
 
   return (
     <div
@@ -266,9 +272,7 @@ export default function InventoryEditModal({
         <div className="card-header-row">
           <div>
             <h3 className="card-title">Edit Inventory Item</h3>
-            <p className="card-subtitle">
-              Update pricing, quantity, and catalog details.
-            </p>
+            <p className="card-subtitle">Update pricing, quantity, and catalog details.</p>
           </div>
         </div>
 
@@ -279,38 +283,38 @@ export default function InventoryEditModal({
             <div className="section-title">Item Details</div>
             <div className="form-grid">
               <div className="field-full">
-                <label className="label" htmlFor="description">Description</label>
+                <label className="label" htmlFor="description">
+                  Description
+                </label>
                 <textarea
                   id="description"
                   {...register("description", {
                     required: "Description is required.",
-                    validate: (value) =>
-                      value.trim() !== "" || "Description is required.",
+                    validate: (value) => value.trim() !== "" || "Description is required.",
                   })}
                   rows={3}
                   className="textarea"
                 />
-                {errors.description && (
-                  <div className="small-muted" style={{ color: "#b42318" }}>
-                    {errors.description.message}
-                  </div>
-                )}
+                <FieldError error={errors.description?.message} />
               </div>
 
               <div>
-                <label className="label" htmlFor="sku">SKU</label>
+                <label className="label" htmlFor="sku">
+                  SKU
+                </label>
                 <input id="sku" {...register("sku")} className="input" />
               </div>
 
               <div>
-                <label className="label" htmlFor="qty">Quantity</label>
+                <label className="label" htmlFor="qty">
+                  Quantity
+                </label>
                 <input
                   id="qty"
                   {...register("qty", {
                     required: "Quantity is required.",
                     validate: (value) => {
-                      if (value === "" || value == null)
-                        return "Quantity is required.";
+                      if (value === "" || value == null) return "Quantity is required.";
                       if (!/^\d+$/.test(String(value))) {
                         return "Qty must be a whole number ≥ 0.";
                       }
@@ -320,18 +324,16 @@ export default function InventoryEditModal({
                   className="input"
                   inputMode="numeric"
                 />
-                {errors.qty && (
-                  <div className="small-muted" style={{ color: "#b42318" }}>
-                    {errors.qty.message}
-                  </div>
-                )}
+                <FieldError error={errors.qty?.message} />
               </div>
             </div>
 
             <div className="section-title">Catalog Placement</div>
             <div className="form-grid">
               <div>
-                <label className="label" htmlFor="categoryId">Category</label>
+                <label className="label" htmlFor="categoryId">
+                  Category
+                </label>
                 <select id="categoryId" {...register("categoryId")} className="select">
                   <option value="">(none)</option>
                   {categories.map((c) => (
@@ -343,7 +345,9 @@ export default function InventoryEditModal({
               </div>
 
               <div>
-                <label className="label" htmlFor="subcategoryId">Subcategory</label>
+                <label className="label" htmlFor="subcategoryId">
+                  Subcategory
+                </label>
                 <select
                   id="subcategoryId"
                   {...register("subcategoryId")}
@@ -360,7 +364,9 @@ export default function InventoryEditModal({
               </div>
 
               <div>
-                <label className="label" htmlFor="deviceModelId">Model</label>
+                <label className="label" htmlFor="deviceModelId">
+                  Model
+                </label>
                 <select
                   id="deviceModelId"
                   {...register("deviceModelId")}
@@ -377,7 +383,9 @@ export default function InventoryEditModal({
               </div>
 
               <div>
-                <label className="label" htmlFor="variantId">Variant</label>
+                <label className="label" htmlFor="variantId">
+                  Variant
+                </label>
                 <select
                   id="variantId"
                   {...register("variantId")}
@@ -394,7 +402,9 @@ export default function InventoryEditModal({
               </div>
 
               <div>
-                <label className="label" htmlFor="conditionId">Condition</label>
+                <label className="label" htmlFor="conditionId">
+                  Condition
+                </label>
                 <select id="conditionId" {...register("conditionId")} className="select">
                   <option value="">(none)</option>
                   {conditions.map((c) => (
@@ -406,7 +416,9 @@ export default function InventoryEditModal({
               </div>
 
               <div>
-                <label className="label" htmlFor="statusId">Status</label>
+                <label className="label" htmlFor="statusId">
+                  Status
+                </label>
                 <select id="statusId" {...register("statusId")} className="select">
                   <option value="">(none)</option>
                   {statuses.map((s) => (
@@ -418,7 +430,9 @@ export default function InventoryEditModal({
               </div>
 
               <div>
-                <label className="label" htmlFor="sourceId">Source</label>
+                <label className="label" htmlFor="sourceId">
+                  Source
+                </label>
                 <select id="sourceId" {...register("sourceId")} className="select">
                   <option value="">(none)</option>
                   {sources.map((s) => (
@@ -433,14 +447,15 @@ export default function InventoryEditModal({
             <div className="section-title">Pricing</div>
             <div className="form-grid">
               <div>
-                <label className="label" htmlFor="cost">Cost</label>
+                <label className="label" htmlFor="cost">
+                  Cost
+                </label>
                 <input
                   id="cost"
                   {...register("cost", {
                     required: "Cost is required.",
                     validate: (value) => {
-                      if (value === "" || value == null)
-                        return "Cost is required.";
+                      if (value === "" || value == null) return "Cost is required.";
                       const num = Number(value);
                       if (Number.isNaN(num) || num < 0) {
                         return "Cost must be a valid number ≥ 0.";
@@ -451,15 +466,13 @@ export default function InventoryEditModal({
                   className="input"
                   inputMode="decimal"
                 />
-                {errors.cost && (
-                  <div className="small-muted" style={{ color: "#b42318" }}>
-                    {errors.cost.message}
-                  </div>
-                )}
+                <FieldError error={errors.cost?.message} />
               </div>
 
               <div>
-                <label className="label" htmlFor="isForSale">Item Use</label>
+                <label className="label" htmlFor="isForSale">
+                  Item Use
+                </label>
                 <select
                   id="isForSale"
                   className="select"
@@ -473,7 +486,9 @@ export default function InventoryEditModal({
               </div>
 
               <div>
-                <label className="label" htmlFor="price">Price</label>
+                <label className="label" htmlFor="price">
+                  Price
+                </label>
                 <input
                   id="price"
                   {...register("price", {
@@ -502,11 +517,7 @@ export default function InventoryEditModal({
                   className="input"
                   inputMode="decimal"
                 />
-                {errors.price && (
-                  <div className="small-muted" style={{ color: "#b42318" }}>
-                    {errors.price.message}
-                  </div>
-                )}
+                <FieldError error={errors.price?.message} />
               </div>
 
               <div className="inventory-summary-box">
@@ -530,11 +541,7 @@ export default function InventoryEditModal({
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                className="button-primary"
-                disabled={saving}
-              >
+              <button type="submit" className="button-primary" disabled={saving}>
                 {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { useAuth } from "../auth/useAuth";
-import {
-  listProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-} from "../data/products";
+import "../styles/inventory.css";
+import InventoryEditModal from "@/components/inventory/InventoryEditModal";
+import PageHeader from "@/components/ui/PageHeader";
+import LoadingCard from "@/components/ui/LoadingCard";
+import EmptyState from "@/components/ui/EmptyState";
+import FieldError from "@/components/ui/FieldError";
+import InventoryTable from "@/components/inventory/InventoryTable";
+
 import {
   listCategories,
   listSubcategories,
@@ -17,9 +18,8 @@ import {
   listSources,
   listVariants,
 } from "../data/lookups";
-
-import "../styles/inventory.css";
-import InventoryEditModal from "@/components/inventory/InventoryEditModal";
+import { useAuth } from "../auth/useAuth";
+import { listProducts, createProduct, updateProduct, deleteProduct } from "../data/products";
 
 const defaultValues = {
   description: "",
@@ -80,6 +80,10 @@ export default function Inventory() {
   const watchedPrice = Number(price || 0);
   const watchedQty = Number(qty || 0);
 
+  function money(n) {
+    return Number(n || 0).toFixed(2);
+  }
+
   async function loadProducts() {
     setLoading(true);
     try {
@@ -99,7 +103,7 @@ export default function Inventory() {
       try {
         await loadProducts();
 
-        const [cats, conds, stats, srcs] = await Promise.all([
+        const [cats, conditions, stats, srcs] = await Promise.all([
           listCategories(),
           listConditions(),
           listStatuses(),
@@ -107,7 +111,7 @@ export default function Inventory() {
         ]);
 
         setCategories(cats || []);
-        setConditions(conds || []);
+        setConditions(conditions || []);
         setStatuses(stats || []);
         setSources(srcs || []);
       } catch (e) {
@@ -206,8 +210,7 @@ export default function Inventory() {
     const cleanSku = values.sku.trim();
 
     const costNum = Number(values.cost);
-    const priceNum =
-      values.price === "" || values.price == null ? null : Number(values.price);
+    const priceNum = values.price === "" || values.price == null ? null : Number(values.price);
     const qtyNum = parseInt(values.qty, 10);
 
     if (!cleanDesc) {
@@ -278,14 +281,9 @@ export default function Inventory() {
     }
   }
 
-  const getName = (row, key, nested) => row?.[key] ?? row?.[nested]?.name ?? "";
-
   const inventoryStats = useMemo(() => {
     const totalItems = rows.length;
-    const totalQty = rows.reduce(
-      (sum, r) => sum + Number(r.qty_on_hand || 0),
-      0
-    );
+    const totalQty = rows.reduce((sum, r) => sum + Number(r.qty_on_hand || 0), 0);
     const totalCostValue = rows.reduce(
       (sum, r) => sum + Number(r.cost || 0) * Number(r.qty_on_hand || 0),
       0
@@ -302,24 +300,6 @@ export default function Inventory() {
       totalRetailValue,
     };
   }, [rows]);
-
-  function money(n) {
-    return Number(n || 0).toFixed(2);
-  }
-
-  function StatusBadge({ children, tone = "neutral" }) {
-    let className = "inventory-badge";
-
-    if (tone === "good") {
-      className = "inventory-badge inventory-badge-good";
-    } else if (tone === "warn") {
-      className = "inventory-badge inventory-badge-warn";
-    } else if (tone === "info") {
-      className = "inventory-badge inventory-badge-info";
-    }
-
-    return <span className={className}>{children || "—"}</span>;
-  }
 
   function onEdit(item) {
     setEditingItem(item);
@@ -341,144 +321,160 @@ export default function Inventory() {
       setEditSaving(false);
     }
   }
-  
+
+  function toggleSort(column) {
+    if (sortBy === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortBy(column);
+    setSortDirection("asc");
+  }
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [sortBy, setSortBy] = useState("description");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [conditionFilter, setConditionFilter] = useState("");
+
+  function getName(row, key, nested) {
+    return row?.[key] ?? row?.[nested]?.name ?? "";
+  }
+
+  const filteredRows = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    return rows.filter((r) => {
+      const categoryName = getName(r, "category_name", "category");
+      const subcategoryName = getName(r, "subcategory_name", "subcategory");
+      const modelName = getName(r, "model_name", "model");
+      const variantName = getName(r, "variant_name", "variant");
+      const statusName = getName(r, "status_name", "status");
+      const sourceName = getName(r, "source_name", "source");
+
+      const searchableText = [
+        r.description,
+        r.name,
+        r.sku,
+        categoryName,
+        subcategoryName,
+        modelName,
+        variantName,
+        statusName,
+        sourceName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !term || searchableText.includes(term);
+      const matchesStatus = !statusFilter || String(r.status_id || "") === statusFilter;
+      const matchesStock = !inStockOnly || Number(r.qty_on_hand || 0) > 0;
+      const matchesSource = !sourceFilter || String(r.source_id || "") === sourceFilter;
+      const matchesCondition = !conditionFilter || String(r.condition_id || "") === conditionFilter;
+
+      return matchesSearch && matchesStatus && matchesSource && matchesCondition && matchesStock;
+    });
+  }, [rows, searchTerm, statusFilter, inStockOnly, sourceFilter, conditionFilter]);
+
+  const sortedRows = useMemo(() => {
+    const sorted = [...filteredRows];
+
+    sorted.sort((a, b) => {
+      const getSortableValue = (row) => {
+        switch (sortBy) {
+          case "description":
+            return String(row.description ?? row.name ?? "").toLowerCase();
+
+          case "source":
+            return String(getName(row, "source_name", "source") || "").toLowerCase();
+
+          case "cost":
+            return Number(row.cost || 0);
+
+          case "price":
+            return Number(row.price || 0);
+
+          case "qty":
+            return Number(row.qty_on_hand || 0);
+
+          default:
+            return String(row.description ?? row.name ?? "").toLowerCase();
+        }
+      };
+
+      const aValue = getSortableValue(a);
+      const bValue = getSortableValue(b);
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [filteredRows, sortBy, sortDirection]);
+
   let tableContent;
 
-if (loading) {
-  tableContent = (
-    <div className="empty-state">Loading inventory...</div>
-  );
-} else if (rows.length === 0) {
-  tableContent = (
-    <div className="empty-state">No products yet.</div>
-  );
-} else {
-  tableContent = (
-    <div className="table-wrap">
-      <div className="table-wrap">
-        <table className="app-table inventory-table">
-          <thead>
-            <tr>
-              <th className="th-left inventory-th-sticky">Item</th>
-              <th className="th-left inventory-th-sticky">Catalog</th>
-              <th className="th-left inventory-th-sticky">
-                Condition / Status
-              </th>
-              <th className="th-left inventory-th-sticky">Source</th>
-              <th className="th-right inventory-th-sticky">Cost</th>
-              <th className="th-right inventory-th-sticky">Price</th>
-              <th className="th-right inventory-th-sticky">Qty</th>
-              <th className="th-right inventory-th-sticky">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const categoryName = getName(r, "category_name", "category");
-              const subcategoryName = getName(
-                r,
-                "subcategory_name",
-                "subcategory"
-              );
-              const modelName = getName(r, "model_name", "model");
-              const variantName = getName(r, "variant_name", "variant");
-              const conditionName = getName(
-                r,
-                "condition_name",
-                "condition"
-              );
-              const statusName = getName(r, "status_name", "status");
-              const sourceName = getName(r, "source_name", "source");
+  if (loading) {
+    tableContent = <LoadingCard message="Loading inventory..." />;
+  } else if (rows.length === 0) {
+    tableContent = (
+      <EmptyState
+        title="No products yet"
+        message="Add your first inventory item to start tracking stock, pricing, and catalog placement."
+      />
+    );
+  } else {
+    tableContent = (
+      <InventoryTable
+        rows={sortedRows}
+        statuses={statuses}
+        sources={sources}
+        conditions={conditions}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        sourceFilter={sourceFilter}
+        setSourceFilter={setSourceFilter}
+        conditionFilter={conditionFilter}
+        setConditionFilter={setConditionFilter}
+        inStockOnly={inStockOnly}
+        setInStockOnly={setInStockOnly}
+        onClearFilters={() => {
+          setSearchTerm("");
+          setStatusFilter("");
+          setSourceFilter("");
+          setConditionFilter("");
+          setInStockOnly(false);
+        }}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        toggleSort={toggleSort}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    );
+  }
 
-              return (
-                <tr key={r.id} className="tr">
-                  <td className="td-top">
-                    <div className="inventory-item-title">
-                      {r.description ?? r.name ?? ""}
-                    </div>
-                    <div className="inventory-item-meta">
-                      SKU: {r.sku || "—"}
-                    </div>
-                  </td>
+  const rowItemLabel = rows.length === 1 ? "item" : "items";
+  const sortedMatchLabel = sortedRows.length === 1 ? "match" : "matches";
 
-                  <td className="td-top">
-                    <div className="inventory-stack-text">
-                      <div>
-                        <strong>{categoryName || "—"}</strong>
-                      </div>
-                      <div className="small-muted">
-                        {[subcategoryName, modelName, variantName]
-                          .filter(Boolean)
-                          .join(" / ") || "—"}
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="td-top">
-                    <div className="inventory-badge-row">
-                      <StatusBadge tone="info">
-                        {conditionName || "No condition"}
-                      </StatusBadge>
-                      <StatusBadge tone="good">
-                        {statusName || "No status"}
-                      </StatusBadge>
-                    </div>
-                  </td>
-
-                  <td className="td-top">{sourceName || "—"}</td>
-
-                  <td className="td-right">${money(r.cost)}</td>
-                  <td className="td-right">
-                    {r.price == null ? "—" : `$${money(r.price)}`}
-                  </td>
-                  <td className="td-right">
-                    <span
-                      className={
-                        Number(r.qty_on_hand || 0) > 0
-                          ? "inventory-qty-pill"
-                          : "inventory-qty-pill-low"
-                      }
-                    >
-                      {r.qty_on_hand ?? 0}
-                    </span>
-                  </td>
-                  <td className="td-right">
-                    <div className="action-row">
-                      <button
-                        type="button"
-                        onClick={() => onEdit(r)}
-                        className="button-secondary"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(r.id)}
-                        className="button-danger"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+  const inventoryCountLabel =
+    sortedRows.length === rows.length
+      ? `${rows.length} ${rowItemLabel}`
+      : `${sortedRows.length} ${sortedMatchLabel} of ${rows.length}`;
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Inventory</h2>
-          <p className="page-subtitle">
-            Add devices, parts, and repair stock with cleaner organization.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Inventory"
+        subtitle="Add devices, parts, and repair stock with cleaner organization."
+      />
 
       <div className="stats-grid">
         <div className="stat-card">
@@ -491,15 +487,11 @@ if (loading) {
         </div>
         <div className="stat-card">
           <div className="stat-label">Cost Value</div>
-          <div className="stat-value">
-            ${money(inventoryStats.totalCostValue)}
-          </div>
+          <div className="stat-value">${money(inventoryStats.totalCostValue)}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Retail Value</div>
-          <div className="stat-value">
-            ${money(inventoryStats.totalRetailValue)}
-          </div>
+          <div className="stat-value">${money(inventoryStats.totalRetailValue)}</div>
         </div>
       </div>
 
@@ -517,30 +509,26 @@ if (loading) {
           <div className="section-title">Item Details</div>
           <div className="form-grid">
             <div className="field-full">
-              <label htmlFor="description" className="label">Description</label>
+              <label htmlFor="description" className="label">
+                Description
+              </label>
               <textarea
                 id="description"
                 {...register("description", {
                   required: "Description is required.",
-                  validate: (value) =>
-                    value.trim() !== "" || "Description is required.",
+                  validate: (value) => value.trim() !== "" || "Description is required.",
                 })}
                 rows={3}
                 className="textarea"
                 placeholder="Example: iPod Classic 5th Gen, tested, screen scratched, working HDD"
               />
-              {errors.description && (
-                <div
-                  className="small-muted"
-                  style={{ color: "var(--danger-color, #b42318)" }}
-                >
-                  {errors.description.message}
-                </div>
-              )}
+              <FieldError error={errors.description?.message} />
             </div>
 
             <div>
-              <label htmlFor="sku" className="label">SKU</label>
+              <label htmlFor="sku" className="label">
+                SKU
+              </label>
               <input
                 id="sku"
                 {...register("sku")}
@@ -550,14 +538,15 @@ if (loading) {
             </div>
 
             <div>
-              <label htmlFor="qty" className="label">Quantity</label>
+              <label htmlFor="qty" className="label">
+                Quantity
+              </label>
               <input
                 id="qty"
                 {...register("qty", {
                   required: "Quantity is required.",
                   validate: (value) => {
-                    if (value === "" || value == null)
-                      return "Quantity is required.";
+                    if (value === "" || value == null) return "Quantity is required.";
                     if (!/^\d+$/.test(String(value))) {
                       return "Qty must be a whole number ≥ 0.";
                     }
@@ -571,21 +560,16 @@ if (loading) {
                 placeholder="0"
                 inputMode="numeric"
               />
-              {errors.qty && (
-                <div
-                  className="small-muted"
-                  style={{ color: "var(--danger-color, #b42318)" }}
-                >
-                  {errors.qty.message}
-                </div>
-              )}
+              <FieldError error={errors.qty?.message} />
             </div>
           </div>
 
           <div className="section-title">Catalog Placement</div>
           <div className="form-grid">
             <div>
-              <label htmlFor="categoryId" className="label">Category</label>
+              <label htmlFor="categoryId" className="label">
+                Category
+              </label>
               <select id="categoryId" {...register("categoryId")} className="select">
                 <option value="">(none)</option>
                 {categories.map((c) => (
@@ -597,7 +581,9 @@ if (loading) {
             </div>
 
             <div>
-              <label htmlFor="subcategoryId" className="label">Subcategory</label>
+              <label htmlFor="subcategoryId" className="label">
+                Subcategory
+              </label>
               <select
                 id="subcategoryId"
                 {...register("subcategoryId")}
@@ -614,7 +600,9 @@ if (loading) {
             </div>
 
             <div>
-              <label htmlFor="deviceModelId" className="label">Model</label>
+              <label htmlFor="deviceModelId" className="label">
+                Model
+              </label>
               <select
                 id="deviceModelId"
                 {...register("deviceModelId")}
@@ -631,7 +619,9 @@ if (loading) {
             </div>
 
             <div>
-              <label htmlFor="variantId" className="label">Variant</label>
+              <label htmlFor="variantId" className="label">
+                Variant
+              </label>
               <select
                 id="variantId"
                 {...register("variantId")}
@@ -648,7 +638,9 @@ if (loading) {
             </div>
 
             <div>
-              <label htmlFor="conditionId" className="label">Condition</label>
+              <label htmlFor="conditionId" className="label">
+                Condition
+              </label>
               <select id="conditionId" {...register("conditionId")} className="select">
                 <option value="">(none)</option>
                 {conditions.map((c) => (
@@ -660,7 +652,9 @@ if (loading) {
             </div>
 
             <div>
-              <label htmlFor="statusId" className="label">Status</label>
+              <label htmlFor="statusId" className="label">
+                Status
+              </label>
               <select id="statusId" {...register("statusId")} className="select">
                 <option value="">(none)</option>
                 {statuses.map((s) => (
@@ -672,7 +666,9 @@ if (loading) {
             </div>
 
             <div>
-              <label htmlFor="sourceId" className="label">Source</label>
+              <label htmlFor="sourceId" className="label">
+                Source
+              </label>
               <select id="sourceId" {...register("sourceId")} className="select">
                 <option value="">(none)</option>
                 {sources.map((s) => (
@@ -687,14 +683,15 @@ if (loading) {
           <div className="section-title">Pricing</div>
           <div className="form-grid">
             <div>
-              <label htmlFor="cost" className="label">Cost</label>
+              <label htmlFor="cost" className="label">
+                Cost
+              </label>
               <input
                 id="cost"
                 {...register("cost", {
                   required: "Cost is required.",
                   validate: (value) => {
-                    if (value === "" || value == null)
-                      return "Cost is required.";
+                    if (value === "" || value == null) return "Cost is required.";
                     const num = Number(value);
                     if (Number.isNaN(num) || num < 0) {
                       return "Cost must be a valid number ≥ 0.";
@@ -706,18 +703,13 @@ if (loading) {
                 placeholder="0.00"
                 inputMode="decimal"
               />
-              {errors.cost && (
-                <div
-                  className="small-muted"
-                  style={{ color: "var(--danger-color, #b42318)" }}
-                >
-                  {errors.cost.message}
-                </div>
-              )}
+              <FieldError error={errors.cost?.message} />
             </div>
 
             <div>
-              <label htmlFor="isForSale" className="label">Item Use</label>
+              <label htmlFor="isForSale" className="label">
+                Item Use
+              </label>
               <select
                 id="isForSale"
                 className="select"
@@ -731,7 +723,9 @@ if (loading) {
             </div>
 
             <div>
-              <label htmlFor="price" className="label">Price</label>
+              <label htmlFor="price" className="label">
+                Price
+              </label>
               <input
                 id="price"
                 {...register("price", {
@@ -761,14 +755,7 @@ if (loading) {
                 placeholder="0.00"
                 inputMode="decimal"
               />
-              {errors.price && (
-                <div
-                  className="small-muted"
-                  style={{ color: "var(--danger-color, #b42318)" }}
-                >
-                  {errors.price.message}
-                </div>
-              )}
+              <FieldError error={errors.price?.message} />
             </div>
 
             <div className="inventory-summary-box">
@@ -803,17 +790,14 @@ if (loading) {
         <div className="card-header-row">
           <div>
             <h3 className="card-title">Current Inventory</h3>
-            <p className="card-subtitle">
-              Review current stock, pricing, and catalog assignments.
-            </p>
+            <p className="card-subtitle">Review current stock, pricing, and catalog assignments.</p>
           </div>
           <div className="count-badge">
-            {rows.length} item{rows.length === 1 ? "" : "s"}
+            <div className="count-badge">{inventoryCountLabel}</div>{" "}
           </div>
         </div>
 
         {tableContent}
-
       </div>
       <InventoryEditModal
         isOpen={!!editingItem}

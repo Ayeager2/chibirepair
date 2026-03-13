@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { getPurchaseItems, listPurchases } from "../data/purchases";
 import "../styles/purchase-history.css";
+import EmptyState from "@/components/ui/EmptyState";
+import TableWrap from "@/components/ui/TableWrap";
+import PageHeader from "@/components/ui/PageHeader";
 
 function money(n) {
   return Number(n || 0).toFixed(2);
@@ -65,10 +68,7 @@ export default function PurchaseHistory() {
 
   const stats = useMemo(() => {
     const totalPurchases = rows.length;
-    const totalSpent = rows.reduce(
-      (sum, r) => sum + Number(r.total_cost || 0),
-      0
-    );
+    const totalSpent = rows.reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
     const withSource = rows.filter((r) => r.source?.name).length;
     const withSeller = rows.filter((r) => (r.seller_name || "").trim()).length;
 
@@ -83,13 +83,12 @@ export default function PurchaseHistory() {
   let purchasesContent;
 
   if (loading) {
-    purchasesContent = (
-      <div className="empty-state">Loading purchases...</div>
-    );
+    purchasesContent = <div className="empty-state">Loading purchases...</div>;
   } else if (rows.length === 0) {
-    purchasesContent = (
-      <div className="empty-state">No purchases yet.</div>
-    );
+    <EmptyState
+      title="No purchases yet"
+      message="Once you start recording purchases, they will appear here with totals and line item details."
+    />;
   } else {
     purchasesContent = (
       <div className="purchase-history-list">
@@ -102,19 +101,13 @@ export default function PurchaseHistory() {
           if (isOpen) {
             if (loadingItemsId === r.id) {
               expandedContent = (
-                <div className="purchase-history-inner-empty">
-                  Loading items...
-                </div>
+                <div className="purchase-history-inner-empty">Loading items...</div>
               );
             } else if (items.length === 0) {
-              expandedContent = (
-                <div className="purchase-history-inner-empty">
-                  No items found.
-                </div>
-              );
+              expandedContent = <div className="purchase-history-inner-empty">No items found.</div>;
             } else {
               expandedContent = (
-                <div className="purchase-history-items-wrap">
+                <TableWrap>
                   <table className="app-table purchase-history-items-table">
                     <thead>
                       <tr>
@@ -132,20 +125,14 @@ export default function PurchaseHistory() {
                           item.product?.description ||
                           "(unknown product)";
 
-                        const lineTotal =
-                          Number(item.quantity || 0) *
-                          Number(item.unit_cost || 0);
+                        const lineTotal = Number(item.quantity || 0) * Number(item.unit_cost || 0);
 
                         return (
                           <tr key={item.id} className="tr">
                             <td className="td-left">
-                              <div className="purchase-history-item-title">
-                                {label}
-                              </div>
+                              <div className="purchase-history-item-title">{label}</div>
                             </td>
-                            <td className="td-left">
-                              {item.product?.sku || "—"}
-                            </td>
+                            <td className="td-left">{item.product?.sku || "—"}</td>
                             <td className="td-right">{item.quantity || 0}</td>
                             <td className="td-right">${money(item.unit_cost)}</td>
                             <td className="td-right">
@@ -156,7 +143,7 @@ export default function PurchaseHistory() {
                       })}
                     </tbody>
                   </table>
-                </div>
+                </TableWrap>
               );
             }
           }
@@ -169,9 +156,7 @@ export default function PurchaseHistory() {
               <div className="purchase-history-summary">
                 <div className="purchase-history-top-row">
                   <div>
-                    <div className="purchase-history-date">
-                      {formatDate(r.purchase_date)}
-                    </div>
+                    <div className="purchase-history-date">{formatDate(r.purchase_date)}</div>
                     <div className="purchase-history-meta">
                       <span>
                         <strong>Source:</strong> {r.source?.name || "—"}
@@ -183,20 +168,14 @@ export default function PurchaseHistory() {
                   </div>
 
                   <div className="purchase-history-total-box">
-                    <div className="purchase-history-total-label">
-                      Total Cost
-                    </div>
-                    <div className="purchase-history-total-value">
-                      ${money(r.total_cost)}
-                    </div>
+                    <div className="purchase-history-total-label">Total Cost</div>
+                    <div className="purchase-history-total-value">${money(r.total_cost)}</div>
                   </div>
                 </div>
 
                 <div className="purchase-history-notes-box">
                   <div className="purchase-history-notes-label">Notes</div>
-                  <div className="purchase-history-notes-text">
-                    {r.notes || "No notes."}
-                  </div>
+                  <div className="purchase-history-notes-text">{r.notes || "No notes."}</div>
                 </div>
 
                 <div className="purchase-history-actions">
@@ -213,9 +192,7 @@ export default function PurchaseHistory() {
               {isOpen ? (
                 <div className="purchase-history-expanded">
                   <div className="purchase-history-expanded-header">
-                    <h4 className="purchase-history-expanded-title">
-                      Purchased Items
-                    </h4>
+                    <h4 className="purchase-history-expanded-title">Purchased Items</h4>
                   </div>
 
                   {expandedContent}
@@ -230,14 +207,10 @@ export default function PurchaseHistory() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Purchase History</h2>
-          <p className="page-subtitle">
-            Review past purchases, sources, sellers, and line item details.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Purchase History"
+        subtitle="Review past purchases, sources, sellers, and line item details."
+      />
 
       <div className="stats-grid">
         <div className="stat-card">
@@ -275,9 +248,7 @@ export default function PurchaseHistory() {
         </div>
 
         {purchasesContent}
-
       </div>
-      <PurchaseHistory/>
     </div>
   );
 }

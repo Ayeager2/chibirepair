@@ -3,8 +3,8 @@
 }
 
 .invoice-expanded-cell {
-  background: #fafafa;
-  border-top: 1px solid #eee;
+  background: var(--color-surface-soft);
+  border-top: 1px solid var(--color-border-soft);
   padding: 16px;
 }
 
@@ -20,7 +20,7 @@
   margin: 0 0 12px;
   font-size: 16px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-page-text);
 }
 
 .invoice-nested-table {
@@ -38,13 +38,15 @@
 
 .invoice-summary-chip {
   padding: 6px 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--color-surface);
+  color: var(--color-page-text);
 }
 
 .invoice-summary-chip-remaining {
-  background: #fff8e1;
+  background: var(--color-surface-muted);
+  border-color: var(--color-info-border);
 }
 
 .invoice-summary-label {
@@ -73,19 +75,19 @@
 }
 
 .invoice-status-paid {
-  background: #ecfdf5;
-  color: #065f46;
-  border-color: #a7f3d0;
+  background: var(--color-surface-muted);
+  color: var(--color-success);
+  border-color: var(--color-success-border);
 }
 
 .invoice-status-partial {
-  background: #fffbeb;
-  color: #92400e;
-  border-color: #fde68a;
+  background: var(--color-surface-muted);
+  color: var(--color-info);
+  border-color: var(--color-info-border);
 }
 
 .invoice-status-unpaid {
-  background: #f3f4f6;
-  color: #4b5563;
-  border-color: #d1d5db;
+  background: var(--color-surface-disabled);
+  color: var(--color-page-text);
+  border-color: var(--color-border-strong);
 }

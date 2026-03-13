@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../auth/useAuth";
 import { listSources } from "../data/lookups";
-import {
-  listPurchaseProducts,
-  createPurchaseWithItems,
-} from "../data/purchases";
+import { listPurchaseProducts, createPurchaseWithItems } from "../data/purchases";
 
 import "../styles/purchases.css";
+import TableWrap from "@/components/ui/TableWrap";
+import LoadingCard from "@/components/ui/LoadingCard";
+import PageHeader from "@/components/ui/PageHeader";
 
 function emptyItem() {
   return {
@@ -30,9 +30,7 @@ export default function Purchases() {
   const [products, setProducts] = useState([]);
   const [sources, setSources] = useState([]);
 
-  const [purchaseDate, setPurchaseDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
   const [sourceId, setSourceId] = useState("");
   const [sellerName, setSellerName] = useState("");
   const [notes, setNotes] = useState("");
@@ -58,9 +56,7 @@ export default function Purchases() {
   }, []);
 
   function updateItem(index, patch) {
-    setItems((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, ...patch } : row))
-    );
+    setItems((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   function addLine() {
@@ -137,22 +133,17 @@ export default function Purchases() {
   if (loading) {
     return (
       <div className="page">
-        <div className="loading-card">Loading purchase form...</div>
+        <LoadingCard message="Loading purchase form..." />
       </div>
     );
   }
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Purchase Entry</h2>
-          <p className="page-subtitle">
-            Record incoming stock purchases and update inventory quantities
-            cleanly.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Purchase Entry"
+        subtitle="Record incoming stock purchases and update inventory quantities cleanly."
+      />
 
       <div className="stats-grid">
         <div className="stat-card">
@@ -181,15 +172,15 @@ export default function Purchases() {
           <div className="card-header">
             <div>
               <h3 className="card-title">Purchase Details</h3>
-              <p className="card-subtitle">
-                General info for this purchase record.
-              </p>
+              <p className="card-subtitle">General info for this purchase record.</p>
             </div>
           </div>
 
           <div className="form-grid">
             <div>
-              <label className="label" htmlFor="purchase-date">Purchase Date</label>
+              <label className="label" htmlFor="purchase-date">
+                Purchase Date
+              </label>
               <input
                 id="purchase-date"
                 type="date"
@@ -200,7 +191,9 @@ export default function Purchases() {
             </div>
 
             <div>
-              <label className="label" htmlFor="source-select">Source</label>
+              <label className="label" htmlFor="source-select">
+                Source
+              </label>
               <select
                 id="source-select"
                 value={sourceId}
@@ -217,7 +210,9 @@ export default function Purchases() {
             </div>
 
             <div>
-              <label className="label" htmlFor="seller-name">Seller Name</label>
+              <label className="label" htmlFor="seller-name">
+                Seller Name
+              </label>
               <input
                 id="seller-name"
                 value={sellerName}
@@ -228,7 +223,9 @@ export default function Purchases() {
             </div>
 
             <div className="field-full">
-              <label className="label" htmlFor="notes">Notes</label>
+              <label className="label" htmlFor="notes">
+                Notes
+              </label>
               <textarea
                 id="notes"
                 value={notes}
@@ -245,9 +242,7 @@ export default function Purchases() {
           <div className="card-header-row">
             <div>
               <h3 className="card-title">Purchase Items</h3>
-              <p className="card-subtitle">
-                Add one line per product received.
-              </p>
+              <p className="card-subtitle">Add one line per product received.</p>
             </div>
 
             <button type="button" onClick={addLine} className="button-primary">
@@ -255,7 +250,7 @@ export default function Purchases() {
             </button>
           </div>
 
-          <div className="table-wrap">
+          <TableWrap>
             <table className="app-table purchases-table">
               <thead>
                 <tr>
@@ -269,9 +264,7 @@ export default function Purchases() {
               </thead>
               <tbody>
                 {items.map((row, index) => {
-                  const selected = products.find(
-                    (p) => p.id === row.product_id
-                  );
+                  const selected = products.find((p) => p.id === row.product_id);
                   const qty = parseInt(row.quantity, 10) || 0;
                   const unitCost = Number(row.unit_cost || 0);
                   const lineTotal = qty * unitCost;
@@ -283,9 +276,7 @@ export default function Purchases() {
                           value={row.product_id}
                           onChange={(e) => {
                             const productId = e.target.value;
-                            const selectedProduct = products.find(
-                              (p) => p.id === productId
-                            );
+                            const selectedProduct = products.find((p) => p.id === productId);
 
                             updateItem(index, {
                               product_id: productId,
@@ -331,9 +322,7 @@ export default function Purchases() {
                       <td className="td-right">
                         <input
                           value={row.quantity}
-                          onChange={(e) =>
-                            updateItem(index, { quantity: e.target.value })
-                          }
+                          onChange={(e) => updateItem(index, { quantity: e.target.value })}
                           className="purchase-number-input"
                           inputMode="numeric"
                         />
@@ -342,9 +331,7 @@ export default function Purchases() {
                       <td className="td-right">
                         <input
                           value={row.unit_cost}
-                          onChange={(e) =>
-                            updateItem(index, { unit_cost: e.target.value })
-                          }
+                          onChange={(e) => updateItem(index, { unit_cost: e.target.value })}
                           className="purchase-number-input-wide"
                           inputMode="decimal"
                         />
@@ -359,9 +346,7 @@ export default function Purchases() {
                           type="button"
                           onClick={() => removeLine(index)}
                           disabled={items.length === 1}
-                          className={`button-danger ${
-                            items.length === 1 ? "button-disabled" : ""
-                          }`}
+                          className={`button-danger ${items.length === 1 ? "button-disabled" : ""}`}
                         >
                           Remove
                         </button>
@@ -371,7 +356,7 @@ export default function Purchases() {
                 })}
               </tbody>
             </table>
-          </div>
+          </TableWrap>
 
           <div className="purchase-totals-bar">
             <div className="purchase-totals-meta">
@@ -392,12 +377,7 @@ export default function Purchases() {
         </div>
 
         <div className="form-actions">
-          <button
-            type="button"
-            onClick={resetForm}
-            className="button-secondary"
-            disabled={saving}
-          >
+          <button type="button" onClick={resetForm} className="button-secondary" disabled={saving}>
             Clear
           </button>
 

@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 
+import "../styles/invoice-history.css";
+import PageHeader from "@/components/ui/PageHeader";
+import EmptyState from "@/components/ui/EmptyState";
+import TableWrap from "@/components/ui/TableWrap";
+import LoadingCard from "@/components/ui/LoadingCard";
+
 import { useAuth } from "../auth/useAuth";
 import {
   addPaymentToInvoice,
@@ -7,8 +13,6 @@ import {
   getInvoicePayments,
   listInvoices,
 } from "../data/invoices";
-
-import "../styles/invoice-history.css";
 
 function money(n) {
   return Number(n || 0).toFixed(2);
@@ -169,10 +173,7 @@ export default function InvoiceHistory() {
           : new Date().toISOString(),
       });
 
-      const refreshedPayments = await getInvoicePayments(
-        invoiceRow.id,
-        ownerId
-      );
+      const refreshedPayments = await getInvoicePayments(invoiceRow.id, ownerId);
 
       setPaymentMap((prev) => ({
         ...prev,
@@ -206,7 +207,7 @@ export default function InvoiceHistory() {
   if (!ownerId) {
     return (
       <div className="page">
-        <div className="loading-card">Loading...</div>
+        <LoadingCard message="Loading..." />
       </div>
     );
   }
@@ -214,24 +215,21 @@ export default function InvoiceHistory() {
   let invoicesContent;
 
   if (loading) {
-    invoicesContent = (
-      <div className="loading-card">Loading invoices...</div>
-    );
+    invoicesContent = <LoadingCard message="Loading invoices..." />;
   } else if (rows.length === 0) {
-    invoicesContent = (
-      <div className="empty-state">No invoices yet.</div>
-    );
+    <EmptyState
+      title="No invoices yet"
+      message="Once invoices are created, they will appear here with balances, items, and payment history."
+    />;
   } else {
     invoicesContent = (
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">Invoices</h3>
-          <p className="card-subtitle">
-            Expand an invoice to view items and add payments.
-          </p>
+          <p className="card-subtitle">Expand an invoice to view items and add payments.</p>
         </div>
 
-        <div className="table-wrap">
+        <TableWrap>
           <table className="app-table invoice-history-table">
             <thead>
               <tr>
@@ -258,12 +256,13 @@ export default function InvoiceHistory() {
                 let itemsContent;
 
                 if (loadingItemsId === r.id) {
-                  itemsContent = (
-                    <div className="empty-state">Loading items...</div>
-                  );
+                  itemsContent = <LoadingCard message="Loading items..." />;
                 } else if (items.length === 0) {
                   itemsContent = (
-                    <div className="empty-state">No items found.</div>
+                    <EmptyState
+                      title="No items found"
+                      message="This invoice does not have any saved line items."
+                    />
                   );
                 } else {
                   itemsContent = (
@@ -282,30 +281,19 @@ export default function InvoiceHistory() {
                         <tbody>
                           {items.map((item) => {
                             const productLabel =
-                              item.product?.device_label ||
-                              item.product?.description ||
-                              "";
+                              item.product?.device_label || item.product?.description || "";
 
                             const lineTotal =
-                              Number(item.quantity || 0) *
-                              Number(item.unit_price || 0);
+                              Number(item.quantity || 0) * Number(item.unit_price || 0);
 
                             return (
                               <tr key={item.id} className="tr">
-                                <td className="td-left">
-                                  {item.description || ""}
-                                </td>
+                                <td className="td-left">{item.description || ""}</td>
                                 <td className="td-left">{productLabel}</td>
-                                <td className="td-left">
-                                  {item.product?.sku || ""}
-                                </td>
+                                <td className="td-left">{item.product?.sku || ""}</td>
                                 <td className="td-right">{item.quantity}</td>
-                                <td className="td-right">
-                                  {money(item.unit_price)}
-                                </td>
-                                <td className="td-right">
-                                  {money(lineTotal)}
-                                </td>
+                                <td className="td-right">{money(item.unit_price)}</td>
+                                <td className="td-right">{money(lineTotal)}</td>
                               </tr>
                             );
                           })}
@@ -328,16 +316,17 @@ export default function InvoiceHistory() {
                 let paymentsContent;
 
                 if (loadingPaymentsId === r.id) {
-                  paymentsContent = (
-                    <div className="empty-state">Loading payments...</div>
-                  );
+                  paymentsContent = <LoadingCard message="Loading payments..." />;
                 } else if (payments.length === 0) {
                   paymentsContent = (
-                    <div className="empty-state">No payments yet.</div>
+                    <EmptyState
+                      title="No payments yet"
+                      message="Payments added to this invoice will appear here."
+                    />
                   );
                 } else {
                   paymentsContent = (
-                    <div className="table-wrap">
+                    <TableWrap>
                       <table className="app-table invoice-nested-table">
                         <thead>
                           <tr>
@@ -349,20 +338,14 @@ export default function InvoiceHistory() {
                         <tbody>
                           {payments.map((payment) => (
                             <tr key={payment.id} className="tr">
-                              <td className="td-left">
-                                {formatDateTime(payment.payment_date)}
-                              </td>
-                              <td className="td-left">
-                                {payment.payment_method || ""}
-                              </td>
-                              <td className="td-right">
-                                {money(payment.amount)}
-                              </td>
+                              <td className="td-left">{formatDateTime(payment.payment_date)}</td>
+                              <td className="td-left">{payment.payment_method || ""}</td>
+                              <td className="td-right">{money(payment.amount)}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </TableWrap>
                   );
                 }
 
@@ -371,9 +354,7 @@ export default function InvoiceHistory() {
                     <tr className="tr">
                       <td className="td-left">{r.invoice_number}</td>
                       <td className="td-left">{r.invoice_date || ""}</td>
-                      <td className="td-left">
-                        {r.customer?.name || "(no customer)"}
-                      </td>
+                      <td className="td-left">{r.customer?.name || "(no customer)"}</td>
                       <td className="td-left">
                         <span className={statusBadgeClass(r.payment_status)}>
                           {r.payment_status || "unpaid"}
@@ -402,29 +383,21 @@ export default function InvoiceHistory() {
                           </div>
 
                           <div className="invoice-expanded-section">
-                            <h4 className="invoice-section-heading">
-                              Add Payment
-                            </h4>
+                            <h4 className="invoice-section-heading">Add Payment</h4>
 
                             <div className="invoice-summary-chips">
                               <div className="invoice-summary-chip">
-                                <span className="invoice-summary-label">
-                                  Total:
-                                </span>
+                                <span className="invoice-summary-label">Total:</span>
                                 <strong>{money(r.total)}</strong>
                               </div>
 
                               <div className="invoice-summary-chip">
-                                <span className="invoice-summary-label">
-                                  Paid:
-                                </span>
+                                <span className="invoice-summary-label">Paid:</span>
                                 <strong>{money(r.paid_amount)}</strong>
                               </div>
 
                               <div className="invoice-summary-chip invoice-summary-chip-remaining">
-                                <span className="invoice-summary-label">
-                                  Remaining:
-                                </span>
+                                <span className="invoice-summary-label">Remaining:</span>
                                 <strong>{money(safeBalance)}</strong>
                               </div>
                             </div>
@@ -434,8 +407,7 @@ export default function InvoiceHistory() {
                                 type="button"
                                 onClick={() =>
                                   updatePaymentForm(r.id, {
-                                    amount:
-                                      safeBalance > 0 ? money(safeBalance) : "",
+                                    amount: safeBalance > 0 ? money(safeBalance) : "",
                                   })
                                 }
                                 disabled={isPaidOff || savingPaymentId === r.id}
@@ -447,9 +419,11 @@ export default function InvoiceHistory() {
 
                             <div className="form-grid invoice-payment-grid">
                               <div>
-                                <label htmlFor="amount-input" className="label">Amount</label>
+                                <label htmlFor="amount-input" className="label">
+                                  Amount
+                                </label>
                                 <input
-                                  id="amount-intput"
+                                  id="amount-input"
                                   type="number"
                                   min="0.01"
                                   step="0.01"
@@ -467,7 +441,9 @@ export default function InvoiceHistory() {
                               </div>
 
                               <div>
-                                <label htmlFor="method-select" className="label">Method</label>
+                                <label htmlFor="method-select" className="label">
+                                  Method
+                                </label>
                                 <select
                                   id="method-select"
                                   value={paymentForm.payment_method}
@@ -487,15 +463,15 @@ export default function InvoiceHistory() {
                                   <option value="venmo">Venmo</option>
                                   <option value="paypal">PayPal</option>
                                   <option value="check">Check</option>
-                                  <option value="bank_transfer">
-                                    Bank Transfer
-                                  </option>
+                                  <option value="bank_transfer">Bank Transfer</option>
                                   <option value="other">Other</option>
                                 </select>
                               </div>
 
                               <div>
-                                <label htmlFor="datetime-local" className="label">Payment Date</label>
+                                <label htmlFor="datetime-local" className="label">
+                                  Payment Date
+                                </label>
                                 <input
                                   id="datetime-local"
                                   type="datetime-local"
@@ -535,21 +511,17 @@ export default function InvoiceHistory() {
               })}
             </tbody>
           </table>
-        </div>
+        </TableWrap>
       </div>
     );
   }
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Invoice History</h2>
-          <p className="page-subtitle">
-            Review invoices, line items, balances, and payments.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Invoice History"
+        subtitle="Review invoices, line items, balances, and payments."
+      />
 
       {invoicesContent}
     </div>

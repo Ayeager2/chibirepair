@@ -8,6 +8,8 @@ import { emptyInvoiceItem, createInvoiceWithItems } from "../data/invoices";
 import { searchProductsForInvoice } from "../data/products";
 
 import "../styles/invoices.css";
+import TableWrap from "@/components/ui/TableWrap";
+import PageHeader from "@/components/ui/PageHeader";
 
 function formatMoney(value) {
   return Number(value || 0).toFixed(2);
@@ -93,15 +95,11 @@ export default function Invoices() {
   }
 
   function handleItemChange(index, field, value) {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
-    );
+    setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   }
 
   function handleProductSelect(index, productId) {
-    const selected = productOptions.find(
-      (p) => String(p.id) === String(productId)
-    );
+    const selected = productOptions.find((p) => String(p.id) === String(productId));
 
     setItems((prev) =>
       prev.map((item, i) =>
@@ -111,8 +109,7 @@ export default function Invoices() {
               ...item,
               product_id: productId,
               description: selected?.description || "",
-              unit_price:
-                selected?.price != null ? String(selected.price) : "0",
+              unit_price: selected?.price != null ? String(selected.price) : "0",
               line_type: "product",
             }
       )
@@ -159,24 +156,17 @@ export default function Invoices() {
   if (!ownerId) {
     return (
       <div className="page">
-        <div className="invoice-warning-card">
-          Unable to determine current user.
-        </div>
+        <div className="invoice-warning-card">Unable to determine current user.</div>
       </div>
     );
   }
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Create Invoice</h2>
-          <p className="page-subtitle">
-            Build an invoice, add products or custom lines, and save it to
-            customer history.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Create Invoice"
+        subtitle="Build an invoice, add products or custom lines, and save it to customer history."
+      />
 
       <div className="card">
         <div className="card-header">
@@ -188,7 +178,9 @@ export default function Invoices() {
 
         <div className="form-grid">
           <div className="field-full">
-            <label htmlFor="customer-select" className="label">Customer</label>
+            <label htmlFor="customer-select" className="label">
+              Customer
+            </label>
             <CustomerSelect
               id="customer-select"
               value={invoice.customer_id}
@@ -198,25 +190,25 @@ export default function Invoices() {
           </div>
 
           <div>
-            <label htmlFor="date" className="label">Invoice Date</label>
+            <label htmlFor="date" className="label">
+              Invoice Date
+            </label>
             <input
               type="date"
               className="input"
               value={invoice.invoice_date}
-              onChange={(e) =>
-                handleInvoiceChange("invoice_date", e.target.value)
-              }
+              onChange={(e) => handleInvoiceChange("invoice_date", e.target.value)}
             />
           </div>
 
           <div>
-            <label htmlFor="select" className="label">Payment Status</label>
+            <label htmlFor="select" className="label">
+              Payment Status
+            </label>
             <select
               className="select"
               value={invoice.payment_status}
-              onChange={(e) =>
-                handleInvoiceChange("payment_status", e.target.value)
-              }
+              onChange={(e) => handleInvoiceChange("payment_status", e.target.value)}
             >
               <option value="unpaid">Unpaid</option>
               <option value="paid">Paid</option>
@@ -231,8 +223,7 @@ export default function Invoices() {
           <div>
             <h3 className="card-title">Invoice Items</h3>
             <p className="card-subtitle">
-              Add line items, select products, and adjust descriptions or
-              prices.
+              Add line items, select products, and adjust descriptions or prices.
             </p>
           </div>
 
@@ -244,23 +235,17 @@ export default function Invoices() {
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
             />
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={addItem}
-            >
+            <button type="button" className="button-secondary" onClick={addItem}>
               Add Line
             </button>
           </div>
         </div>
 
         {loadingProducts ? (
-          <div className="small-muted invoices-loading-products">
-            Loading products...
-          </div>
+          <div className="small-muted invoices-loading-products">Loading products...</div>
         ) : null}
 
-        <div className="table-wrap">
+        <TableWrap>
           <table className="app-table invoices-table">
             <thead>
               <tr>
@@ -279,9 +264,7 @@ export default function Invoices() {
                     <select
                       className="select"
                       value={item.product_id}
-                      onChange={(e) =>
-                        handleProductSelect(index, e.target.value)
-                      }
+                      onChange={(e) => handleProductSelect(index, e.target.value)}
                     >
                       <option value="">Select product</option>
                       {productOptions.map((product) => (
@@ -298,9 +281,7 @@ export default function Invoices() {
                       type="text"
                       className="input"
                       value={item.description}
-                      onChange={(e) =>
-                        handleItemChange(index, "description", e.target.value)
-                      }
+                      onChange={(e) => handleItemChange(index, "description", e.target.value)}
                     />
                   </td>
 
@@ -310,9 +291,7 @@ export default function Invoices() {
                       min="1"
                       className="input invoices-number-input"
                       value={item.quantity}
-                      onChange={(e) =>
-                        handleItemChange(index, "quantity", e.target.value)
-                      }
+                      onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
                     />
                   </td>
 
@@ -323,9 +302,7 @@ export default function Invoices() {
                       step="0.01"
                       className="input invoices-number-input-wide"
                       value={item.unit_price}
-                      onChange={(e) =>
-                        handleItemChange(index, "unit_price", e.target.value)
-                      }
+                      onChange={(e) => handleItemChange(index, "unit_price", e.target.value)}
                     />
                   </td>
 
@@ -347,7 +324,7 @@ export default function Invoices() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrap>
 
         <div className="invoices-summary-wrap">
           <div className="invoices-summary-card">
@@ -376,12 +353,7 @@ export default function Invoices() {
         </div>
 
         <div className="form-actions">
-          <button
-            type="button"
-            className="button-primary"
-            disabled={saving}
-            onClick={handleSave}
-          >
+          <button type="button" className="button-primary" disabled={saving} onClick={handleSave}>
             {saving ? "Saving..." : "Save Invoice"}
           </button>
         </div>

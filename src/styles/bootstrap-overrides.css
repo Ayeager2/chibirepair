@@ -53,3 +53,21 @@
 .app-side-nav .list-group-item.list-group-item-action.active {
   color: var(--color-primary-text) !important;
 }
+
+.form-control {
+  background: var(--color-surface);
+  color: var(--color-page-text);
+  border-color: var(--color-border-strong);
+}
+
+.form-control::placeholder {
+  color: var(--color-subtle-text) !important;
+  opacity: 1;
+}
+
+.form-control:focus {
+  background: var(--color-surface);
+  color: var(--color-page-text);
+  border-color: var(--color-primary-border);
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15);
+}

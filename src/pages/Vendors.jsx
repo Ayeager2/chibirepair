@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { useAuth } from "../auth/useAuth";
-import {
-  listVendors,
-  createVendor,
-  updateVendor,
-  deleteVendor,
-} from "../data/vendors";
-import Tooltip from "../components/Tooltip";
 import "../styles/vendors.css";
+import LoadingCard from "@/components/ui/LoadingCard";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
+import FieldError from "@/components/ui/FieldError";
+
+import { useAuth } from "../auth/useAuth";
+import { listVendors, createVendor, updateVendor, deleteVendor } from "../data/vendors";
+import Tooltip from "../components/Tooltip";
 
 const defaultValues = {
   name: "",
@@ -37,10 +37,7 @@ export default function Vendors() {
     mode: "onSubmit",
   });
 
-  const editingRow = useMemo(
-    () => rows.find((r) => r.id === editingId) || null,
-    [rows, editingId]
-  );
+  const editingRow = useMemo(() => rows.find((r) => r.id === editingId) || null, [rows, editingId]);
 
   const vendorStats = useMemo(() => {
     const total = rows.length;
@@ -160,12 +157,13 @@ export default function Vendors() {
   let vendorsContent;
 
   if (loading) {
-    vendorsContent = (
-      <div className="empty-state">Loading vendors...</div>
-    );
+    vendorsContent = <LoadingCard message="Loading vendors..." />;
   } else if (rows.length === 0) {
     vendorsContent = (
-      <div className="empty-state">No vendors yet.</div>
+      <EmptyState
+        title="No vendors yet"
+        message="Add a vendor to keep track of suppliers, parts contacts, and sourcing notes."
+      />
     );
   } else {
     vendorsContent = (
@@ -174,10 +172,7 @@ export default function Vendors() {
           const isEditing = editingId === r.id;
 
           return (
-            <div
-              key={r.id}
-              className={`vendors-row ${isEditing ? "vendors-row-editing" : ""}`}
-            >
+            <div key={r.id} className={`vendors-row ${isEditing ? "vendors-row-editing" : ""}`}>
               <div className="vendors-main">
                 <div className="vendors-name-row">
                   {r.website ? (
@@ -212,25 +207,15 @@ export default function Vendors() {
 
                 <div className="vendors-notes-box">
                   <div className="vendors-notes-label">Notes</div>
-                  <div className="vendors-notes-text">
-                    {r.notes || "No notes."}
-                  </div>
+                  <div className="vendors-notes-text">{r.notes || "No notes."}</div>
                 </div>
               </div>
 
               <div className="vendors-actions">
-                <button
-                  type="button"
-                  onClick={() => startEdit(r)}
-                  className="vendors-edit-button"
-                >
+                <button type="button" onClick={() => startEdit(r)} className="vendors-edit-button">
                   Edit
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(r.id)}
-                  className="button-danger"
-                >
+                <button type="button" onClick={() => onDelete(r.id)} className="button-danger">
                   Delete
                 </button>
               </div>
@@ -243,14 +228,10 @@ export default function Vendors() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Vendors</h2>
-          <p className="page-subtitle">
-            Keep track of suppliers, parts contacts, and purchase sources.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Vendors"
+        subtitle="Keep track of suppliers, parts contacts, and purchase sources."
+      />
 
       <div className="stats-grid">
         <div className="stat-card">
@@ -277,12 +258,9 @@ export default function Vendors() {
       <div className="card">
         <div className="card-header-row">
           <div>
-            <h3 className="card-title">
-              {editingId ? "Edit Vendor" : "Add Vendor"}
-            </h3>
+            <h3 className="card-title">{editingId ? "Edit Vendor" : "Add Vendor"}</h3>
             <p className="card-subtitle">
-              Store vendor contact details and notes for sourcing parts and
-              supplies.
+              Store vendor contact details and notes for sourcing parts and supplies.
             </p>
           </div>
 
@@ -298,29 +276,25 @@ export default function Vendors() {
 
           <div className="form-grid-2">
             <div className="field-full">
-              <label htmlFor="vendor-name" className="label">Vendor Name</label>
+              <label htmlFor="vendor-name" className="label">
+                Vendor Name
+              </label>
               <input
                 id="vendor-name"
                 {...register("name", {
                   required: "Vendor name is required.",
-                  validate: (value) =>
-                    value.trim() !== "" || "Vendor name is required.",
+                  validate: (value) => value.trim() !== "" || "Vendor name is required.",
                 })}
                 className="input"
                 placeholder="Example: iFixit, eBay Seller, Local Parts Shop"
               />
-              {errors.name ? (
-                <div
-                  className="small-muted"
-                  style={{ color: "var(--danger-color, #b42318)" }}
-                >
-                  {errors.name.message}
-                </div>
-              ) : null}
+              <FieldError error={errors.name?.message} />
             </div>
 
             <div>
-              <label htmlFor="vendor-phone" className="label">Phone</label>
+              <label htmlFor="vendor-phone" className="label">
+                Phone
+              </label>
               <input
                 id="vendor-phone"
                 {...register("phone")}
@@ -330,7 +304,9 @@ export default function Vendors() {
             </div>
 
             <div>
-              <label htmlFor="vendor-email" className="label">Email</label>
+              <label htmlFor="vendor-email" className="label">
+                Email
+              </label>
               <input
                 id="vendor-email"
                 {...register("email", {
@@ -338,25 +314,22 @@ export default function Vendors() {
                     const v = (value || "").trim();
                     if (!v) return true;
                     return (
-                      /^[^\s@]+@[^\s@]+$/.test(v) && v.includes(".") || "Enter a valid email address."
+                      (/^[^\s@]+@[^\s@]+$/.test(v) && v.includes(".")) ||
+                      "Enter a valid email address."
                     );
                   },
                 })}
                 className="input"
                 placeholder="Optional email address"
               />
-              {errors.email ? (
-                <div
-                  className="small-muted"
-                  style={{ color: "var(--danger-color, #b42318)" }}
-                >
-                  {errors.email.message}
-                </div>
-              ) : null}
+
+              <FieldError error={errors.email?.message} />
             </div>
 
             <div className="field-full">
-              <label htmlFor="vendor-website" className="label">Website</label>
+              <label htmlFor="vendor-website" className="label">
+                Website
+              </label>
               <input
                 id="vendor-website"
                 {...register("website", {
@@ -375,18 +348,13 @@ export default function Vendors() {
                 className="input"
                 placeholder="Optional website, e.g. https://www.ifixit.com"
               />
-              {errors.website ? (
-                <div
-                  className="small-muted"
-                  style={{ color: "var(--danger-color, #b42318)" }}
-                >
-                  {errors.website.message}
-                </div>
-              ) : null}
+              <FieldError error={errors.website?.message} />
             </div>
 
             <div className="field-full">
-              <label htmlFor="vendor-notes" className="label">Notes</label>
+              <label htmlFor="vendor-notes" className="label">
+                Notes
+              </label>
               <textarea
                 id="vendor-notes"
                 {...register("notes")}
@@ -418,9 +386,7 @@ export default function Vendors() {
         <div className="card-header-row">
           <div>
             <h3 className="card-title">Vendor List</h3>
-            <p className="card-subtitle">
-              Review, update, and remove vendor records.
-            </p>
+            <p className="card-subtitle">Review, update, and remove vendor records.</p>
           </div>
 
           <div className="count-badge">

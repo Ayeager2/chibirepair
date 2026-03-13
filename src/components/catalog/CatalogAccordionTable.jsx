@@ -1,22 +1,20 @@
-import EmptyState from "@/components/ui/EmptyState";
-import StatusBadge from "@/components/ui/StatusBadge";
-import TableWrap from "@/components/ui/TableWrap";
+import { useMemo, useState } from "react";
 
 export default function CatalogAccordionTable({
   title,
-  subtitle,
   table,
-  items,
-  columns,
-  getRowCells,
+  items = [],
   newValue,
   setNewValue,
   onAdd,
+  addSavingKey,
   addDisabled = false,
   placeholder = "Add item",
-  emptyText = "No items yet.",
+  emptyText = "No items found.",
   defaultOpen = false,
-
+  columns = [],
+  getRowCells,
+  renderEditCells,
   editingItem,
   setEditingItem,
   savingKey,
@@ -26,158 +24,219 @@ export default function CatalogAccordionTable({
   onDelete,
   deleteConfirmMessage,
 }) {
-  const itemCountLabel = `${items.length} item${items.length === 1 ? "" : "s"}`;
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filteredItems = useMemo(() => {
+    if (!normalizedSearch) return items;
+
+    return items.filter((item) => {
+      const cells = getRowCells ? getRowCells(item) : [];
+      const searchableText = [item?.name || "", ...cells.map((cell) => String(cell?.content || ""))]
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearch);
+    });
+  }, [items, getRowCells, normalizedSearch]);
+
+  const isEditingRow = (item) => editingItem?.table === table && editingItem?.id === item.id;
+
+  const isSavingAdd = savingKey === addSavingKey;
+  const hasSearch = items.length > 0;
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onAdd();
+    }
+  }
 
   return (
-    <details className="card" open={defaultOpen}>
-      <summary className="card-header-row catalog-summary">
+    <div className="card">
+      <button
+        type="button"
+        className="catalog-accordion-toggle"
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
         <div>
           <h3 className="card-title">{title}</h3>
-          <p className="card-subtitle">{subtitle || itemCountLabel}</p>
+          <p className="card-subtitle">
+            {items.length} item{items.length === 1 ? "" : "s"}
+          </p>
         </div>
 
-        <StatusBadge tone="neutral">{items.length}</StatusBadge>
-      </summary>
+        <span className="info-badge">{isOpen ? "Hide" : "Show"}</span>
+      </button>
 
-      <div className="catalog-details-body">
-        <div className="catalog-input-row">
-          <input
-            value={newValue}
-            onChange={(e) => setNewValue(e.target.value)}
-            placeholder={placeholder}
-            disabled={addDisabled}
-            className="input catalog-input-flex"
-          />
-          <button
-            type="button"
-            onClick={onAdd}
-            disabled={addDisabled || !newValue.trim()}
-            className="button-primary"
-          >
-            Add
-          </button>
+      {isOpen && (
+        <div className="catalog-accordion-body">
+          <div className="catalog-add-row">
+            <input
+              type="text"
+              value={newValue}
+              onChange={(e) => setNewValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              className="input"
+              disabled={addDisabled}
+            />
+
+            <button
+              type="button"
+              className="button-primary"
+              onClick={onAdd}
+              disabled={addDisabled || !newValue.trim() || isSavingAdd}
+            >
+              {isSavingAdd ? "Adding..." : "Add"}
+            </button>
+          </div>
+
+          {hasSearch && (
+            <div className="catalog-search-row">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={`Search ${title.toLowerCase()}...`}
+                className="input"
+              />
+
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => setSearchTerm("")}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
+          {filteredItems.length === 0 ? (
+            <div className="empty-state">
+              {normalizedSearch ? `No ${title.toLowerCase()} match "${searchTerm}".` : emptyText}
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="app-table">
+                <thead>
+                  <tr>
+                    {columns.map((column) => (
+                      <th key={column.key} className="th-left">
+                        {column.label}
+                      </th>
+                    ))}
+                    <th className="th-right">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredItems.map((item) => {
+                    const rowEditing = isEditingRow(item);
+                    const rowSavingEdit = savingKey === `edit-${table}-${item.id}`;
+                    const rowSavingDelete = savingKey === `delete-${table}-${item.id}`;
+                    const cells = getRowCells ? getRowCells(item) : [];
+
+                    return (
+                      <tr key={item.id}>
+                        {rowEditing ? (
+                          <>
+                            {renderEditCells ? (
+                              renderEditCells({
+                                item,
+                                editingItem,
+                                setEditingItem,
+                              })
+                            ) : (
+                              <td colSpan={Math.max(columns.length, 1)}>
+                                <input
+                                  type="text"
+                                  value={editingItem?.value || ""}
+                                  onChange={(e) =>
+                                    setEditingItem((prev) =>
+                                      prev
+                                        ? {
+                                            ...prev,
+                                            value: e.target.value,
+                                          }
+                                        : prev
+                                    )
+                                  }
+                                  className="input"
+                                />
+                              </td>
+                            )}
+
+                            <td className="td-right">
+                              <div className="action-row">
+                                <button
+                                  type="button"
+                                  className="button-primary"
+                                  onClick={onSaveEdit}
+                                  disabled={rowSavingEdit}
+                                >
+                                  {rowSavingEdit ? "Saving..." : "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button-secondary"
+                                  onClick={onCancelEdit}
+                                  disabled={rowSavingEdit}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            {cells.map((cell, index) => (
+                              <td
+                                key={`${item.id}-${columns[index]?.key || index}`}
+                                className="td-left"
+                              >
+                                {cell.content}
+                              </td>
+                            ))}
+                            <td className="td-right">
+                              <div className="action-row">
+                                <button
+                                  type="button"
+                                  className="button-secondary"
+                                  onClick={() => onBeginEdit(table, item)}
+                                  disabled={rowSavingDelete}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button-danger"
+                                  onClick={() =>
+                                    onDelete(table, item, {
+                                      confirmMessage: deleteConfirmMessage?.(item),
+                                    })
+                                  }
+                                  disabled={rowSavingDelete}
+                                >
+                                  {rowSavingDelete ? "Deleting..." : "Delete"}
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-
-        {items.length === 0 ? (
-          <EmptyState className="catalog-empty-state">{emptyText}</EmptyState>
-        ) : (
-          <TableWrap>
-            <table className="app-table">
-              <thead>
-                <tr>
-                  {columns.map((col) => (
-                    <th
-                      key={col.key}
-                      className={col.align === "right" ? "th-right" : "th-left"}
-                    >
-                      {col.label}
-                    </th>
-                  ))}
-                  <th className="th-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => {
-                  const isEditing =
-                    editingItem?.table === table && editingItem?.id === item.id;
-
-                  const isBusy =
-                    savingKey === `edit-${table}-${item.id}` ||
-                    savingKey === `delete-${table}-${item.id}`;
-
-                  return (
-                    <tr key={item.id} className="tr">
-                      {isEditing ? (
-                        <>
-                          <td className="td-top">
-                            <input
-                              value={editingItem.value}
-                              onChange={(e) =>
-                                setEditingItem((prev) => ({
-                                  ...prev,
-                                  value: e.target.value,
-                                }))
-                              }
-                              className="input"
-                            />
-                          </td>
-
-                          {columns.slice(1).map((col) => (
-                            <td key={col.key} className="td-top">
-                              <span className="muted-text">—</span>
-                            </td>
-                          ))}
-
-                          <td className="td-right">
-                            <div className="action-row">
-                              <button
-                                type="button"
-                                onClick={onSaveEdit}
-                                disabled={!editingItem.value.trim() || isBusy}
-                                className="button-primary"
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={onCancelEdit}
-                                disabled={isBusy}
-                                className="button-secondary"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          {getRowCells(item).map((cell, index) => (
-                            <td
-                              key={`${item.id}-${index}`}
-                              className={
-                                cell.align === "right" ? "td-right" : "td-top"
-                              }
-                            >
-                              {cell.content}
-                            </td>
-                          ))}
-
-                          <td className="td-right">
-                            <div className="action-row">
-                              <button
-                                type="button"
-                                onClick={() => onBeginEdit(table, item)}
-                                disabled={isBusy}
-                                className="button-secondary"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onDelete(table, item, {
-                                    confirmMessage: deleteConfirmMessage
-                                      ? deleteConfirmMessage(item)
-                                      : undefined,
-                                  })
-                                }
-                                disabled={isBusy}
-                                className="button-danger"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </TableWrap>
-        )}
-      </div>
-    </details>
+      )}
+    </div>
   );
 }
