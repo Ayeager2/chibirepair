@@ -1,0 +1,21 @@
+.app-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.app-tooltip-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 1000;
+  max-width: 360px;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  background: var(--color-tooltip-bg);
+  color: var(--color-tooltip-text);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  white-space: normal;
+  box-shadow: 0 10px 25px var(--color-shadow-tooltip);
+  word-break: break-word;
+}

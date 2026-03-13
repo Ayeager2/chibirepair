@@ -1,0 +1,79 @@
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.top-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.top-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-nav-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-page-text);
+}
+
+.top-nav-menu-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.app-side-nav {
+  background: var(--color-surface);
+  color: var(--color-page-text);
+}
+
+.app-side-nav-header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-side-nav-title {
+  color: var(--color-page-text);
+}
+
+.app-side-nav-body {
+  color: var(--color-page-text);
+}
+
+.app-side-nav-links {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.app-side-nav-divider {
+  border-color: var(--color-border);
+  opacity: 1;
+  margin: 16px 0;
+}
+
+.app-side-nav-section {
+  margin-bottom: 12px;
+}
+
+.app-side-nav-tip {
+  font-size: 12px;
+  color: var(--color-subtle-text);
+  line-height: 1.4;
+  opacity: 0.85;
+}

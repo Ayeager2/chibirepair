@@ -1,0 +1,138 @@
+.purchase-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.purchase-history-row {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.purchase-history-row-open {
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.08);
+}
+
+.purchase-history-summary {
+  padding: 14px;
+}
+
+.purchase-history-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.purchase-history-date {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.purchase-history-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.purchase-history-total-box {
+  min-width: 140px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.purchase-history-total-label {
+  font-size: 12px;
+  color: #1d4ed8;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.purchase-history-total-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.purchase-history-notes-box {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.purchase-history-notes-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.purchase-history-notes-text {
+  font-size: 14px;
+  color: #374151;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.purchase-history-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.purchase-history-expanded {
+  border-top: 1px solid #e5e7eb;
+  background: #fbfdff;
+  padding: 14px;
+}
+
+.purchase-history-expanded-header {
+  margin-bottom: 10px;
+}
+
+.purchase-history-expanded-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.purchase-history-inner-empty {
+  padding: 18px;
+  text-align: center;
+  color: #6b7280;
+  background: #fff;
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+}
+
+.purchase-history-items-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+.purchase-history-items-table {
+  min-width: 760px;
+}
+
+.purchase-history-item-title {
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+}

@@ -57,8 +57,8 @@ repair-app/
 Add the following values **(NO quotes)**:
 
 ```env
-VITE_SUPABASE_URL=https://nhuzhdrbhaxtvjpqmhrz.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable__fn-ZJyKYJjsKvmTuW90Qw_pFXJtuGW
+VITE_SUPABASE_URL='url'
+VITE_SUPABASE_ANON_KEY= 'key sb_'
 ```
 
 ⚠ Important:

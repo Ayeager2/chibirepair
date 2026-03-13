@@ -1,0 +1,93 @@
+:root {
+  --color-page-text: #111827;
+  --color-subtle-text: #6b7280;
+  --color-muted-text: #6b7280;
+
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-border-soft: #f0f0f0;
+
+  --color-surface: #ffffff;
+  --color-surface-muted: #f9fafb;
+  --color-surface-soft: #fafafa;
+  --color-surface-disabled: #f3f4f6;
+
+  --color-primary: #2563eb;
+  --color-primary-border: #1d4ed8;
+  --color-primary-text: #ffffff;
+
+  --color-danger: #b91c1c;
+  --color-danger-border: #dc2626;
+  --color-danger-bg: #fff5f5;
+
+  --color-info: #1d4ed8;
+  --color-info-border: #bfdbfe;
+  --color-info-bg: #eff6ff;
+
+  --color-success: #16a34a;
+  --color-success-border: #15803d;
+  --color-success-text: #ffffff;
+
+  --color-card-bg: #ffffff;
+  --color-card-header-bg: #f9fafb;
+
+  --color-tooltip-bg: #111827;
+  --color-tooltip-text: #ffffff;
+
+  --color-shadow-sm: rgba(0, 0, 0, 0.05);
+  --color-shadow-md: rgba(0, 0, 0, 0.06);
+  --color-shadow-tooltip: rgba(0, 0, 0, 0.2);
+
+  --bs-body-bg: var(--color-surface-soft);
+  --bs-body-color: var(--color-page-text);
+  --bs-border-color: var(--color-border);
+  --bs-secondary-bg: var(--color-surface-muted);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-page-text: #f9fafb;
+  --color-subtle-text: #9ca3af;
+  --color-muted-text: #9ca3af;
+
+  --color-border: #374151;
+  --color-border-strong: #4b5563;
+  --color-border-soft: #1f2937;
+
+  --color-surface: #111827;
+  --color-surface-muted: #1f2937;
+  --color-surface-soft: #0f172a;
+  --color-surface-disabled: #374151;
+
+  --color-primary: #3b82f6;
+  --color-primary-border: #60a5fa;
+  --color-primary-text: #ffffff;
+
+  --color-danger: #fca5a5;
+  --color-danger-border: #ef4444;
+  --color-danger-bg: #2a1215;
+
+  --color-info: #93c5fd;
+  --color-info-border: #3b82f6;
+  --color-info-bg: #172554;
+
+  --color-success: #22c55e;
+  --color-success-border: #16a34a;
+  --color-success-text: #052e16;
+
+  --color-card-bg: #111827;
+  --color-card-header-bg: #0b1220;
+
+  --color-tooltip-bg: #f9fafb;
+  --color-tooltip-text: #111827;
+
+  --color-shadow-sm: rgba(0, 0, 0, 0.3);
+  --color-shadow-md: rgba(0, 0, 0, 0.35);
+  --color-shadow-tooltip: rgba(0, 0, 0, 0.45);
+
+  --bs-body-bg: var(--color-surface-soft);
+  --bs-body-color: var(--color-page-text);
+  --bs-border-color: var(--color-border);
+  --bs-secondary-bg: var(--color-surface-muted);
+}

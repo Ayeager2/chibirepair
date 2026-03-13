@@ -1,0 +1,55 @@
+.offcanvas {
+  background: var(--color-surface);
+  color: var(--color-page-text);
+}
+
+.offcanvas-header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.offcanvas-title {
+  color: var(--color-page-text);
+}
+
+.btn-close {
+  filter: none;
+}
+
+[data-theme="dark"] .btn-close {
+  filter: invert(1);
+}
+
+.list-group-item {
+  background: var(--color-surface);
+  color: var(--color-page-text);
+  border-color: var(--color-border);
+}
+
+.list-group-item:hover,
+.list-group-item:focus {
+  background: var(--color-surface-muted);
+  color: var(--color-page-text);
+}
+
+.list-group-item.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary-text);
+}
+
+.app-side-nav .list-group-item,
+.app-side-nav .list-group-item.list-group-item-action {
+  color: var(--color-page-text) !important;
+}
+
+.app-side-nav .list-group-item:hover,
+.app-side-nav .list-group-item:focus,
+.app-side-nav .list-group-item.list-group-item-action:hover,
+.app-side-nav .list-group-item.list-group-item-action:focus {
+  color: var(--color-page-text) !important;
+}
+
+.app-side-nav .list-group-item.active,
+.app-side-nav .list-group-item.list-group-item-action.active {
+  color: var(--color-primary-text) !important;
+}

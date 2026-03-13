@@ -1,0 +1,24 @@
+.customer-edit-error {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.customer-edit-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  font-size: 14px;
+  color: var(--color-page-text);
+  cursor: pointer;
+}
+
+.customer-edit-checkbox input {
+  width: 16px;
+  height: 16px;
+}

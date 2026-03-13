@@ -1,0 +1,40 @@
+html,
+body,
+#root {
+  min-height: 100%;
+  background: var(--color-surface-soft);
+  color: var(--color-page-text);
+}
+
+html,
+body {
+  margin: 0;
+}
+
+#root {
+  background: var(--color-surface-soft);
+}
+
+body {
+  background: var(--color-surface-soft);
+  color: var(--color-page-text);
+}
+
+.muted-text {
+  color: var(--color-muted-text);
+}
+
+.small-muted {
+  font-size: 12px;
+  color: var(--color-muted-text);
+  line-height: 1.4;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 18px 0 10px;
+  color: var(--color-page-text);
+  border-bottom: 1px solid var(--color-border-soft);
+  padding-bottom: 8px;
+}

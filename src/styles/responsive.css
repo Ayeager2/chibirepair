@@ -1,0 +1,9 @@
+@media (max-width: 640px) {
+  .top-nav {
+    align-items: flex-start;
+  }
+
+  .top-nav-title {
+    font-size: 24px;
+  }
+}
