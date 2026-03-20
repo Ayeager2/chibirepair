@@ -30,6 +30,27 @@ function money(n) {
   return Number(n || 0).toFixed(2);
 }
 
+function formatItemType(value) {
+  if (!value) return "—";
+
+  switch (value) {
+    case "donor_device":
+      return "Donor Device";
+    case "finished_product":
+      return "Finished Product";
+    case "part":
+      return "Part";
+    case "supply":
+      return "Supply";
+    case "tool":
+      return "Tool";
+    case "accessory":
+      return "Accessory";
+    default:
+      return value;
+  }
+}
+
 export default function InventoryTable({
   rows,
   statuses,
@@ -63,7 +84,7 @@ export default function InventoryTable({
         <input
           type="text"
           className="input inventory-filter-search"
-          placeholder="Search description, SKU, catalog..."
+          placeholder="Search description, SKU, label, notes..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -131,8 +152,21 @@ export default function InventoryTable({
               Item {sortIndicator("description")}
             </th>
 
+            <th
+              className={`th-left inventory-th-sticky inventory-sortable ${sortBy === "itemType" ? "inventory-sortable-active" : ""}`}
+              onClick={() => toggleSort("itemType")}
+            >
+              Type {sortIndicator("itemType")}
+            </th>
+
             <th className="th-left inventory-th-sticky">Catalog</th>
-            <th className="th-left inventory-th-sticky">Condition / Status</th>
+
+            <th
+              className={`th-left inventory-th-sticky inventory-sortable ${sortBy === "condition" ? "inventory-sortable-active" : ""}`}
+              onClick={() => toggleSort("condition")}
+            >
+              Condition / Status {sortIndicator("condition")}
+            </th>
 
             <th
               className={`th-left inventory-th-sticky inventory-sortable ${sortBy === "source" ? "inventory-sortable-active" : ""}`}
@@ -152,7 +186,7 @@ export default function InventoryTable({
               className={`th-right inventory-th-sticky inventory-sortable ${sortBy === "price" ? "inventory-sortable-active" : ""}`}
               onClick={() => toggleSort("price")}
             >
-              Price {sortIndicator("price")}
+              Asking {sortIndicator("price")}
             </th>
 
             <th
@@ -169,7 +203,7 @@ export default function InventoryTable({
         <tbody>
           {rows.length === 0 ? (
             <tr className="tr">
-              <td colSpan={8} className="td-top inventory-empty-row">
+              <td colSpan={9} className="td-top inventory-empty-row">
                 No matching inventory found. Try adjusting your search or filters.
               </td>
             </tr>
@@ -177,8 +211,6 @@ export default function InventoryTable({
             rows.map((r) => {
               const categoryName = getName(r, "category_name", "category");
               const subcategoryName = getName(r, "subcategory_name", "subcategory");
-              const modelName = getName(r, "model_name", "model");
-              const variantName = getName(r, "variant_name", "variant");
               const conditionName = getName(r, "condition_name", "condition");
               const statusName = getName(r, "status_name", "status");
               const sourceName = getName(r, "source_name", "source");
@@ -186,8 +218,13 @@ export default function InventoryTable({
               return (
                 <tr key={r.id} className="tr">
                   <td className="td-top">
-                    <div className="inventory-item-title">{r.description ?? r.name ?? ""}</div>
+                    <div className="inventory-item-title">{r.description || "—"}</div>
                     <div className="inventory-item-meta">SKU: {r.sku || "—"}</div>
+                    <div className="inventory-item-meta">Label: {r.device_label || "—"}</div>
+                  </td>
+
+                  <td className="td-top">
+                    <StatusBadge tone="info">{formatItemType(r.item_type)}</StatusBadge>
                   </td>
 
                   <td className="td-top">
@@ -195,10 +232,7 @@ export default function InventoryTable({
                       <div>
                         <strong>{categoryName || "—"}</strong>
                       </div>
-                      <div className="small-muted">
-                        {[subcategoryName, modelName, variantName].filter(Boolean).join(" / ") ||
-                          "—"}
-                      </div>
+                      <div className="small-muted">{subcategoryName || "—"}</div>
                     </div>
                   </td>
 
@@ -211,8 +245,10 @@ export default function InventoryTable({
 
                   <td className="td-top">{sourceName || "—"}</td>
 
-                  <td className="td-right">${money(r.cost)}</td>
-                  <td className="td-right">{r.price == null ? "—" : `$${money(r.price)}`}</td>
+                  <td className="td-right">${money(r.unit_cost)}</td>
+                  <td className="td-right">
+                    {r.asking_price == null ? "—" : `$${money(r.asking_price)}`}
+                  </td>
                   <td className="td-right">
                     <span className={getQtyPillClass(r.qty_on_hand)}>{r.qty_on_hand ?? 0}</span>
                   </td>

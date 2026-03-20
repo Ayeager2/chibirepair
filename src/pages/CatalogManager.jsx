@@ -18,41 +18,43 @@ export default function CatalogManager() {
 
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [models, setModels] = useState([]);
-  const [variants, setVariants] = useState([]);
+  const [allSubcategories, setAllSubcategories] = useState([]);
   const [conditions, setConditions] = useState([]);
   const [statuses, setStatuses] = useState([]);
+  const [repairStatuses, setRepairStatuses] = useState([]);
   const [sources, setSources] = useState([]);
-  const [allSubcategories, setAllSubcategories] = useState([]);
+  const [vendors, setVendors] = useState([]);
 
   const [categoryId, setCategoryId] = useState("");
-  const [subcategoryId, setSubcategoryId] = useState("");
-  const [modelId, setModelId] = useState("");
 
   const [newCategory, setNewCategory] = useState("");
   const [newSubcategory, setNewSubcategory] = useState("");
-  const [newModel, setNewModel] = useState("");
-  const [newVariant, setNewVariant] = useState("");
   const [newCondition, setNewCondition] = useState("");
   const [newStatus, setNewStatus] = useState("");
+  const [newRepairStatus, setNewRepairStatus] = useState("");
   const [newSource, setNewSource] = useState("");
+  const [newVendor, setNewVendor] = useState("");
 
   const [editingItem, setEditingItem] = useState(null);
 
   async function loadBase() {
-    const [cats, allSubs, conds, stats, srcs] = await Promise.all([
-      db((s) => s.from("product_categories").select("*").order("name")),
-      db((s) => s.from("product_subcategories").select("*").order("name")),
-      db((s) => s.from("product_conditions").select("*").order("name")),
-      db((s) => s.from("product_statuses").select("*").order("name")),
+    const [cats, allSubs, conds, stats, repairStats, srcs, vends] = await Promise.all([
+      db((s) => s.from("inventory_categories").select("*").order("name")),
+      db((s) => s.from("inventory_subcategories").select("*").order("name")),
+      db((s) => s.from("item_conditions").select("*").order("name")),
+      db((s) => s.from("item_statuses").select("*").order("name")),
+      db((s) => s.from("repair_statuses").select("*").order("name")),
       db((s) => s.from("sources").select("*").order("name")),
+      db((s) => s.from("vendors").select("*").order("name")),
     ]);
 
     setCategories(cats.data || []);
     setAllSubcategories(allSubs.data || []);
     setConditions(conds.data || []);
     setStatuses(stats.data || []);
+    setRepairStatuses(repairStats.data || []);
     setSources(srcs.data || []);
+    setVendors(vends.data || []);
   }
 
   async function loadSubcategories(catId) {
@@ -62,56 +64,25 @@ export default function CatalogManager() {
     }
 
     const res = await db((s) =>
-      s.from("product_subcategories").select("*").eq("category_id", catId).order("name")
+      s.from("inventory_subcategories").select("*").eq("category_id", catId).order("name")
     );
 
     setSubcategories(res.data || []);
   }
 
-  async function loadModels(catId, subId) {
-    if (!catId) {
-      setModels([]);
-      return;
-    }
-
-    const res = await db((s) => {
-      let q = s.from("device_models").select("*").eq("category_id", catId).order("name");
-      if (subId) q = q.eq("subcategory_id", subId);
-      return q;
-    });
-
-    setModels(res.data || []);
-  }
-
-  async function loadVariants(mId) {
-    if (!mId) {
-      setVariants([]);
-      return;
-    }
-
-    const res = await db((s) =>
-      s.from("device_model_variants").select("*").eq("device_model_id", mId).order("name")
-    );
-
-    setVariants(res.data || []);
-  }
-
   async function refreshTable(table) {
     switch (table) {
-      case "product_categories":
-      case "product_conditions":
-      case "product_statuses":
+      case "inventory_categories":
+      case "item_conditions":
+      case "item_statuses":
+      case "repair_statuses":
       case "sources":
+      case "vendors":
         await loadBase();
         break;
-      case "product_subcategories":
+      case "inventory_subcategories":
         await loadSubcategories(categoryId);
-        break;
-      case "device_models":
-        await loadModels(categoryId, subcategoryId);
-        break;
-      case "device_model_variants":
-        await loadVariants(modelId);
+        await loadBase();
         break;
       default:
         break;
@@ -135,38 +106,12 @@ export default function CatalogManager() {
   useEffect(() => {
     (async () => {
       try {
-        setSubcategoryId("");
-        setModelId("");
-        setVariants([]);
         await loadSubcategories(categoryId);
-        await loadModels(categoryId, "");
       } catch (e) {
-        alert(e?.message || "Failed to load subcategories/models.");
+        alert(e?.message || "Failed to load subcategories.");
       }
     })();
   }, [categoryId]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        setModelId("");
-        setVariants([]);
-        await loadModels(categoryId, subcategoryId);
-      } catch (e) {
-        alert(e?.message || "Failed to load models.");
-      }
-    })();
-  }, [subcategoryId, categoryId]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        await loadVariants(modelId);
-      } catch (e) {
-        alert(e?.message || "Failed to load variants.");
-      }
-    })();
-  }, [modelId]);
 
   async function addRow(table, payload) {
     if (!user?.id) {
@@ -174,15 +119,18 @@ export default function CatalogManager() {
       return;
     }
 
-    await db((s) => s.from(table).insert(payload));
+    const { error } = await db((s) => s.from(table).insert(payload));
+    if (error) throw error;
   }
 
   async function updateRow(table, id, payload) {
-    await db((s) => s.from(table).update(payload).eq("id", id));
+    const { error } = await db((s) => s.from(table).update(payload).eq("id", id));
+    if (error) throw error;
   }
 
   async function deleteRow(table, id) {
-    await db((s) => s.from(table).delete().eq("id", id));
+    const { error } = await db((s) => s.from(table).delete().eq("id", id));
+    if (error) throw error;
   }
 
   async function addCategory() {
@@ -191,7 +139,7 @@ export default function CatalogManager() {
 
     setSavingKey("add-category");
     try {
-      await addRow("product_categories", { owner_id: user.id, name: value });
+      await addRow("inventory_categories", { owner_id: user.id, name: value });
       setNewCategory("");
       await loadBase();
     } catch (e) {
@@ -204,17 +152,21 @@ export default function CatalogManager() {
   async function addSubcategory() {
     const value = newSubcategory.trim();
     if (!value) return;
-    if (!categoryId) return alert("Pick a category first.");
+    if (!categoryId) {
+      alert("Pick a category first.");
+      return;
+    }
 
     setSavingKey("add-subcategory");
     try {
-      await addRow("product_subcategories", {
+      await addRow("inventory_subcategories", {
         owner_id: user.id,
         category_id: categoryId,
         name: value,
       });
       setNewSubcategory("");
       await loadSubcategories(categoryId);
+      await loadBase();
     } catch (e) {
       alert(e?.message || "Failed to add subcategory.");
     } finally {
@@ -222,56 +174,13 @@ export default function CatalogManager() {
     }
   }
 
-  async function addModel() {
-    const value = newModel.trim();
-    if (!value) return;
-    if (!categoryId) return alert("Pick a category first.");
-
-    setSavingKey("add-model");
-    try {
-      await addRow("device_models", {
-        owner_id: user.id,
-        category_id: categoryId,
-        subcategory_id: subcategoryId || null,
-        name: value,
-      });
-      setNewModel("");
-      await loadModels(categoryId, subcategoryId);
-    } catch (e) {
-      alert(e?.message || "Failed to add model.");
-    } finally {
-      setSavingKey("");
-    }
-  }
-
-  async function addVariant() {
-    const value = newVariant.trim();
-    if (!value) return;
-    if (!modelId) return alert("Pick a model first.");
-
-    setSavingKey("add-variant");
-    try {
-      await addRow("device_model_variants", {
-        owner_id: user.id,
-        device_model_id: modelId,
-        name: value,
-      });
-      setNewVariant("");
-      await loadVariants(modelId);
-    } catch (e) {
-      alert(e?.message || "Failed to add variant.");
-    } finally {
-      setSavingKey("");
-    }
-  }
-
-  async function addSimple(table, value, setter, reloadFn, savingName) {
+  async function addSimple(table, value, setter, reloadFn, savingName, extraPayload = {}) {
     const trimmed = value.trim();
     if (!trimmed) return;
 
     setSavingKey(savingName);
     try {
-      await addRow(table, { owner_id: user.id, name: trimmed });
+      await addRow(table, { owner_id: user.id, name: trimmed, ...extraPayload });
       setter("");
       await reloadFn();
     } catch (e) {
@@ -282,18 +191,7 @@ export default function CatalogManager() {
   }
 
   function beginEdit(table, item) {
-    if (table === "device_models") {
-      setEditingItem({
-        table,
-        id: item.id,
-        value: item.name || "",
-        category_id: item.category_id || "",
-        subcategory_id: item.subcategory_id || "",
-      });
-      return;
-    }
-
-    if (table === "product_subcategories") {
+    if (table === "inventory_subcategories") {
       setEditingItem({
         table,
         id: item.id,
@@ -325,29 +223,7 @@ export default function CatalogManager() {
 
     let payload = { name: value };
 
-    if (editingItem.table === "device_models") {
-      if (!editingItem.category_id) {
-        alert("Category is required.");
-        return;
-      }
-
-      const validSubcategoryIds = getModelEditSubcategories(editingItem.category_id).map(
-        (x) => x.id
-      );
-
-      const normalizedSubcategoryId =
-        editingItem.subcategory_id && validSubcategoryIds.includes(editingItem.subcategory_id)
-          ? editingItem.subcategory_id
-          : null;
-
-      payload = {
-        name: value,
-        category_id: editingItem.category_id,
-        subcategory_id: normalizedSubcategoryId,
-      };
-    }
-
-    if (editingItem.table === "product_subcategories") {
+    if (editingItem.table === "inventory_subcategories") {
       if (!editingItem.category_id) {
         alert("Category is required.");
         return;
@@ -363,7 +239,6 @@ export default function CatalogManager() {
     try {
       await updateRow(editingItem.table, editingItem.id, payload);
       await refreshTable(editingItem.table);
-      await loadBase();
       setEditingItem(null);
     } catch (e) {
       alert(e?.message || "Failed to save changes.");
@@ -375,7 +250,6 @@ export default function CatalogManager() {
   function getErrorMessage(error) {
     if (!error) return "";
     if (typeof error === "string") return error;
-
     return error.message || error.error_description || error.details || error.hint || "";
   }
 
@@ -398,26 +272,26 @@ export default function CatalogManager() {
 
     if (isLinkedRecordDeleteError(error)) {
       switch (table) {
-        case "product_categories":
-          return `Cannot delete category "${item?.name || ""}" because subcategories, models, or other linked records still depend on it. Remove or reassign those records first.`;
+        case "inventory_categories":
+          return `Cannot delete category "${item?.name || ""}" because subcategories or inventory items still depend on it. Remove or reassign those records first.`;
 
-        case "product_subcategories":
-          return `Cannot delete subcategory "${item?.name || ""}" because models or other linked records still depend on it. Remove or reassign those records first.`;
+        case "inventory_subcategories":
+          return `Cannot delete subcategory "${item?.name || ""}" because inventory items still depend on it. Remove or reassign those records first.`;
 
-        case "device_models":
-          return `Cannot delete model "${item?.name || ""}" because variants, inventory items, or other linked records still depend on it. Remove or reassign those records first.`;
+        case "item_conditions":
+          return `Cannot delete condition "${item?.name || ""}" because inventory items still use it. Remove or reassign those records first.`;
 
-        case "device_model_variants":
-          return `Cannot delete variant "${item?.name || ""}" because inventory items or other linked records still depend on it. Remove or reassign those records first.`;
+        case "item_statuses":
+          return `Cannot delete status "${item?.name || ""}" because inventory items still use it. Remove or reassign those records first.`;
 
-        case "product_conditions":
-          return `Cannot delete condition "${item?.name || ""}" because products or other linked records still use it. Remove or reassign those records first.`;
-
-        case "product_statuses":
-          return `Cannot delete status "${item?.name || ""}" because products or other linked records still use it. Remove or reassign those records first.`;
+        case "repair_statuses":
+          return `Cannot delete repair status "${item?.name || ""}" because builds still use it. Remove or reassign those records first.`;
 
         case "sources":
-          return `Cannot delete source "${item?.name || ""}" because products, purchases, or other linked records still use it. Remove or reassign those records first.`;
+          return `Cannot delete source "${item?.name || ""}" because inventory items, purchases, or other linked records still use it. Remove or reassign those records first.`;
+
+        case "vendors":
+          return `Cannot delete vendor "${item?.name || ""}" because purchases or other linked records still use it. Remove or reassign those records first.`;
 
         default:
           return "Cannot delete this item because other records still depend on it. Remove or reassign linked records first.";
@@ -436,25 +310,9 @@ export default function CatalogManager() {
     try {
       await deleteRow(table, item.id);
 
-      if (table === "product_categories" && categoryId === item.id) {
+      if (table === "inventory_categories" && categoryId === item.id) {
         setCategoryId("");
-        setSubcategoryId("");
-        setModelId("");
         setSubcategories([]);
-        setModels([]);
-        setVariants([]);
-      }
-
-      if (table === "product_subcategories" && subcategoryId === item.id) {
-        setSubcategoryId("");
-        setModelId("");
-        setModels([]);
-        setVariants([]);
-      }
-
-      if (table === "device_models" && modelId === item.id) {
-        setModelId("");
-        setVariants([]);
       }
 
       await refreshTable(table);
@@ -469,32 +327,15 @@ export default function CatalogManager() {
     return categories.find((x) => x.id === id)?.name || "—";
   }
 
-  function findSubcategoryName(id) {
-    return allSubcategories.find((x) => x.id === id)?.name || "—";
-  }
-
-  function findModelName(id) {
-    return models.find((x) => x.id === id)?.name || "—";
-  }
-
-  function getModelEditSubcategories(categoryId) {
-    if (!categoryId) return [];
-    return allSubcategories.filter((x) => x.category_id === categoryId);
-  }
-
   function resetFilters() {
     setCategoryId("");
-    setSubcategoryId("");
-    setModelId("");
     setSubcategories([]);
-    setModels([]);
-    setVariants([]);
   }
 
   const sectionConfigs = [
     {
       title: "Categories",
-      table: "product_categories",
+      table: "inventory_categories",
       items: categories,
       newValue: newCategory,
       setNewValue: setNewCategory,
@@ -505,12 +346,12 @@ export default function CatalogManager() {
       columns: [{ key: "name", label: "Name" }],
       getRowCells: (item) => [{ content: item.name || "—" }],
       deleteConfirmMessage: (item) =>
-        `Delete category "${item.name}"? Make sure no subcategories or models still depend on it.`,
+        `Delete category "${item.name}"? Make sure no subcategories or inventory items still depend on it.`,
       addSavingKey: "add-category",
     },
     {
       title: "Subcategories",
-      table: "product_subcategories",
+      table: "inventory_subcategories",
       addSavingKey: "add-subcategory",
       items: subcategories,
       newValue: newSubcategory,
@@ -575,135 +416,16 @@ export default function CatalogManager() {
         </>
       ),
       deleteConfirmMessage: (item) =>
-        `Delete subcategory "${item.name}"? Related models may still reference it.`,
+        `Delete subcategory "${item.name}"? Related inventory items may still reference it.`,
     },
     {
-      title: "Models",
-      table: "device_models",
-      addSavingKey: "add-model",
-      items: models,
-      newValue: newModel,
-      setNewValue: setNewModel,
-      onAdd: addModel,
-      addDisabled: !categoryId,
-      placeholder: "Add model",
-      emptyText: categoryId ? "No models found." : "Select a category first.",
-      columns: [
-        { key: "name", label: "Name" },
-        { key: "category", label: "Category" },
-        { key: "subcategory", label: "Subcategory" },
-      ],
-      getRowCells: (item) => [
-        { content: item.name || "—" },
-        { content: findCategoryName(item.category_id) },
-        { content: findSubcategoryName(item.subcategory_id) },
-      ],
-      renderEditCells: ({ editingItem, setEditingItem }) => {
-        const editSubcategories = getModelEditSubcategories(editingItem?.category_id);
-
-        return (
-          <>
-            <td className="td-left">
-              <input
-                type="text"
-                value={editingItem?.value || ""}
-                onChange={(e) =>
-                  setEditingItem((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          value: e.target.value,
-                        }
-                      : prev
-                  )
-                }
-                className="input"
-              />
-            </td>
-
-            <td className="td-left">
-              <select
-                value={editingItem?.category_id || ""}
-                onChange={(e) =>
-                  setEditingItem((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          category_id: e.target.value,
-                          subcategory_id: "",
-                        }
-                      : prev
-                  )
-                }
-                className="select"
-              >
-                <option value="">(select category)</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </td>
-
-            <td className="td-left">
-              <select
-                value={editingItem?.subcategory_id || ""}
-                onChange={(e) =>
-                  setEditingItem((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          subcategory_id: e.target.value,
-                        }
-                      : prev
-                  )
-                }
-                className="select"
-                disabled={!editingItem?.category_id}
-              >
-                <option value="">(none)</option>
-                {editSubcategories.map((subcategory) => (
-                  <option key={subcategory.id} value={subcategory.id}>
-                    {subcategory.name}
-                  </option>
-                ))}
-              </select>
-            </td>
-          </>
-        );
-      },
-      deleteConfirmMessage: (item) =>
-        `Delete model "${item.name}"? Variants under it may also be affected.`,
-    },
-    {
-      title: "Variants",
-      table: "device_model_variants",
-      items: variants,
-      newValue: newVariant,
-      setNewValue: setNewVariant,
-      onAdd: addVariant,
-      addDisabled: !modelId,
-      placeholder: "Add variant (e.g. 30GB, 64GB, Rev A)",
-      emptyText: modelId ? "No variants for this model yet." : "Select a model first.",
-      columns: [
-        { key: "name", label: "Name" },
-        { key: "model", label: "Model" },
-      ],
-      getRowCells: (item) => [
-        { content: item.name || "—" },
-        { content: findModelName(item.device_model_id) },
-      ],
-      addSavingKey: "add-variant",
-    },
-    {
-      title: "Conditions",
-      table: "product_conditions",
+      title: "Item Conditions",
+      table: "item_conditions",
       items: conditions,
       newValue: newCondition,
       setNewValue: setNewCondition,
       onAdd: () =>
-        addSimple("product_conditions", newCondition, setNewCondition, loadBase, "add-condition"),
+        addSimple("item_conditions", newCondition, setNewCondition, loadBase, "add-condition"),
       placeholder: "Add condition",
       emptyText: "No conditions yet.",
       columns: [{ key: "name", label: "Name" }],
@@ -711,17 +433,37 @@ export default function CatalogManager() {
       addSavingKey: "add-condition",
     },
     {
-      title: "Statuses",
-      table: "product_statuses",
+      title: "Item Statuses",
+      table: "item_statuses",
       items: statuses,
       newValue: newStatus,
       setNewValue: setNewStatus,
-      onAdd: () => addSimple("product_statuses", newStatus, setNewStatus, loadBase, "add-status"),
-      placeholder: "Add status",
-      emptyText: "No statuses yet.",
+      onAdd: () => addSimple("item_statuses", newStatus, setNewStatus, loadBase, "add-status"),
+      placeholder: "Add item status",
+      emptyText: "No item statuses yet.",
       columns: [{ key: "name", label: "Name" }],
       getRowCells: (item) => [{ content: item.name || "—" }],
       addSavingKey: "add-status",
+    },
+    {
+      title: "Repair Statuses",
+      table: "repair_statuses",
+      items: repairStatuses,
+      newValue: newRepairStatus,
+      setNewValue: setNewRepairStatus,
+      onAdd: () =>
+        addSimple(
+          "repair_statuses",
+          newRepairStatus,
+          setNewRepairStatus,
+          loadBase,
+          "add-repair-status"
+        ),
+      placeholder: "Add repair status",
+      emptyText: "No repair statuses yet.",
+      columns: [{ key: "name", label: "Name" }],
+      getRowCells: (item) => [{ content: item.name || "—" }],
+      addSavingKey: "add-repair-status",
     },
     {
       title: "Sources",
@@ -736,32 +478,43 @@ export default function CatalogManager() {
       getRowCells: (item) => [{ content: item.name || "—" }],
       addSavingKey: "add-source",
     },
+    {
+      title: "Vendors",
+      table: "vendors",
+      items: vendors,
+      newValue: newVendor,
+      setNewValue: setNewVendor,
+      onAdd: () => addSimple("vendors", newVendor, setNewVendor, loadBase, "add-vendor"),
+      placeholder: "Add vendor",
+      emptyText: "No vendors yet.",
+      columns: [{ key: "name", label: "Name" }],
+      getRowCells: (item) => [{ content: item.name || "—" }],
+      addSavingKey: "add-vendor",
+    },
   ];
 
   let content;
 
   if (loading) {
-    content = <LoadingCard>Loading catalog data...</LoadingCard>;
+    content = <LoadingCard message="Loading catalog data..." />;
   } else {
     content = (
       <div className="catalog-layout">
         <CatalogFilterPanel
           categories={categories}
           subcategories={subcategories}
-          models={models}
-          variants={variants}
+          models={[]}
+          variants={[]}
           categoryId={categoryId}
-          subcategoryId={subcategoryId}
-          modelId={modelId}
+          subcategoryId=""
+          modelId=""
           onCategoryChange={setCategoryId}
-          onSubcategoryChange={setSubcategoryId}
-          onModelChange={setModelId}
+          onSubcategoryChange={() => {}}
+          onModelChange={() => {}}
           onResetFilters={resetFilters}
           selectedCategoryName={categoryId ? findCategoryName(categoryId) : "None selected"}
-          selectedSubcategoryName={
-            subcategoryId ? findSubcategoryName(subcategoryId) : "None selected"
-          }
-          selectedModelName={modelId ? findModelName(modelId) : "None selected"}
+          selectedSubcategoryName="N/A"
+          selectedModelName="N/A"
         />
 
         <section className="catalog-main">
@@ -803,7 +556,7 @@ export default function CatalogManager() {
     <div className="page catalog-page">
       <PageHeader
         title="Catalog Manager"
-        subtitle="Manage categories, models, variants, conditions, statuses, and sources."
+        subtitle="Manage categories, subcategories, conditions, statuses, repair statuses, sources, and vendors."
       />
 
       {content}

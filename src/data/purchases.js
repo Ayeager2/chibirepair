@@ -1,10 +1,10 @@
 import { db } from "../lib/db";
 
-export async function listPurchaseProducts() {
+export async function listPurchaseInventory() {
   const { data, error } = await db((s) =>
     s
       .from("inventory_view")
-      .select("id, description, device_label, sku, qty_on_hand, cost, price")
+      .select("id, item_type, description, device_label, sku, qty_on_hand, unit_cost, asking_price")
       .order("created_at", { ascending: false })
   );
 
@@ -13,21 +13,45 @@ export async function listPurchaseProducts() {
 }
 
 export async function createPurchaseWithItems(ownerId, payload) {
-  const purchaseDate =
-    payload.purchase_date || new Date().toISOString().slice(0, 10);
+  if (!ownerId) {
+    throw new Error("Owner id is required.");
+  }
+
+  const purchaseDate = payload.purchase_date || new Date().toISOString().slice(0, 10);
   const sellerName = (payload.seller_name || "").trim() || null;
   const notes = (payload.notes || "").trim() || null;
   const sourceId = payload.source_id || null;
+  const vendorId = payload.vendor_id || null;
+  const shippingCost =
+    payload.shipping_cost === "" || payload.shipping_cost == null
+      ? 0
+      : Number(payload.shipping_cost);
+  const tax = payload.tax === "" || payload.tax == null ? 0 : Number(payload.tax);
+
+  if (Number.isNaN(shippingCost) || shippingCost < 0) {
+    throw new Error("Shipping cost must be a valid number ≥ 0.");
+  }
+
+  if (Number.isNaN(tax) || tax < 0) {
+    throw new Error("Tax must be a valid number ≥ 0.");
+  }
 
   const cleanItems = (payload.items || [])
-    .map((x) => ({
-      product_id: x.product_id || null,
-      quantity: parseInt(x.quantity, 10),
-      unit_cost: Number(x.unit_cost),
-    }))
+    .map((x) => {
+      const quantity = parseInt(x.quantity, 10);
+      const unitCost = Number(x.unit_cost);
+      const description = (x.description || "").trim();
+
+      return {
+        inventory_item_id: x.inventory_item_id || null,
+        description,
+        quantity,
+        unit_cost: unitCost,
+      };
+    })
     .filter(
       (x) =>
-        x.product_id &&
+        x.description &&
         !Number.isNaN(x.quantity) &&
         x.quantity > 0 &&
         !Number.isNaN(x.unit_cost) &&
@@ -38,19 +62,21 @@ export async function createPurchaseWithItems(ownerId, payload) {
     throw new Error("At least one valid purchase item is required.");
   }
 
-  const totalCost = cleanItems.reduce(
-    (sum, x) => sum + x.quantity * x.unit_cost,
-    0
-  );
+  const subtotal = cleanItems.reduce((sum, x) => sum + x.quantity * x.unit_cost, 0);
+  const totalCost = subtotal + shippingCost + tax;
 
   const { data: purchase, error: purchaseError } = await db((s) =>
     s
       .from("purchases")
       .insert({
         owner_id: ownerId,
-        purchase_date: purchaseDate,
+        vendor_id: vendorId,
         source_id: sourceId,
         seller_name: sellerName,
+        purchase_date: purchaseDate,
+        subtotal: subtotal,
+        shipping_cost: shippingCost,
+        tax: tax,
         total_cost: totalCost,
         notes,
       })
@@ -65,19 +91,16 @@ export async function createPurchaseWithItems(ownerId, payload) {
   const purchaseItems = cleanItems.map((x) => ({
     owner_id: ownerId,
     purchase_id: purchaseId,
-    product_id: x.product_id,
+    inventory_item_id: x.inventory_item_id,
+    description: x.description,
     quantity: x.quantity,
     unit_cost: x.unit_cost,
+    line_total: x.quantity * x.unit_cost,
   }));
 
-  const { error: itemsError } = await db((s) =>
-    s.from("purchase_items").insert(purchaseItems)
-  );
+  const { error: itemsError } = await db((s) => s.from("purchase_items").insert(purchaseItems));
 
   if (itemsError) throw itemsError;
-
-  // No React inventory math here anymore.
-  // The SQL trigger updates products.qty_on_hand automatically.
 
   return purchaseId;
 }
@@ -89,12 +112,17 @@ export async function listPurchases() {
       .select(
         `
         id,
+        purchase_number,
         purchase_date,
+        subtotal,
+        shipping_cost,
+        tax,
         total_cost,
         seller_name,
         notes,
         created_at,
-        source:sources(name)
+        source:sources(name),
+        vendor:vendors(name)
       `
       )
       .order("purchase_date", { ascending: false })
@@ -106,6 +134,10 @@ export async function listPurchases() {
 }
 
 export async function getPurchaseItems(purchaseId) {
+  if (!purchaseId) {
+    throw new Error("Purchase id is required.");
+  }
+
   const { data, error } = await db((s) =>
     s
       .from("purchase_items")
@@ -114,9 +146,12 @@ export async function getPurchaseItems(purchaseId) {
         id,
         quantity,
         unit_cost,
-        product_id,
-        product:products(
+        line_total,
+        description,
+        inventory_item_id,
+        inventory_item:inventory_items(
           id,
+          item_type,
           description,
           device_label,
           sku

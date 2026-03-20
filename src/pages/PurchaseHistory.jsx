@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { useAuth } from "../auth/useAuth";
 import { getPurchaseItems, listPurchases } from "../data/purchases";
 import "../styles/purchase-history.css";
 import EmptyState from "@/components/ui/EmptyState";
@@ -17,7 +18,18 @@ function formatDate(value) {
   return d.toLocaleDateString();
 }
 
+function itemLabel(item) {
+  return (
+    item?.inventory_item?.device_label ||
+    item?.inventory_item?.description ||
+    item?.description ||
+    "(unknown item)"
+  );
+}
+
 export default function PurchaseHistory() {
+  const { user } = useAuth();
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,9 +38,15 @@ export default function PurchaseHistory() {
   const [loadingItemsId, setLoadingItemsId] = useState(null);
 
   async function load() {
+    if (!user?.id) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const data = await listPurchases();
+      const data = await listPurchases(user.id);
       setRows(data || []);
     } catch (e) {
       alert(e?.message || "Failed to load purchases.");
@@ -40,9 +58,14 @@ export default function PurchaseHistory() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [user?.id]);
 
   async function toggleExpand(purchaseId) {
+    if (!user?.id) {
+      alert("Not logged in.");
+      return;
+    }
+
     if (expandedId === purchaseId) {
       setExpandedId(null);
       return;
@@ -54,7 +77,7 @@ export default function PurchaseHistory() {
 
     try {
       setLoadingItemsId(purchaseId);
-      const items = await getPurchaseItems(purchaseId);
+      const items = await getPurchaseItems(purchaseId, user.id);
       setItemMap((prev) => ({
         ...prev,
         [purchaseId]: items || [],
@@ -85,10 +108,12 @@ export default function PurchaseHistory() {
   if (loading) {
     purchasesContent = <div className="empty-state">Loading purchases...</div>;
   } else if (rows.length === 0) {
-    <EmptyState
-      title="No purchases yet"
-      message="Once you start recording purchases, they will appear here with totals and line item details."
-    />;
+    purchasesContent = (
+      <EmptyState
+        title="No purchases yet"
+        message="Once you start recording purchases, they will appear here with totals and line item details."
+      />
+    );
   } else {
     purchasesContent = (
       <div className="purchase-history-list">
@@ -111,7 +136,7 @@ export default function PurchaseHistory() {
                   <table className="app-table purchase-history-items-table">
                     <thead>
                       <tr>
-                        <th className="th-left">Product</th>
+                        <th className="th-left">Inventory Item</th>
                         <th className="th-left">SKU</th>
                         <th className="th-right">Qty</th>
                         <th className="th-right">Unit Cost</th>
@@ -120,23 +145,16 @@ export default function PurchaseHistory() {
                     </thead>
                     <tbody>
                       {items.map((item) => {
-                        const label =
-                          item.product?.device_label ||
-                          item.product?.description ||
-                          "(unknown product)";
-
-                        const lineTotal = Number(item.quantity || 0) * Number(item.unit_cost || 0);
-
                         return (
                           <tr key={item.id} className="tr">
                             <td className="td-left">
-                              <div className="purchase-history-item-title">{label}</div>
+                              <div className="purchase-history-item-title">{itemLabel(item)}</div>
                             </td>
-                            <td className="td-left">{item.product?.sku || "—"}</td>
+                            <td className="td-left">{item.inventory_item?.sku || "—"}</td>
                             <td className="td-right">{item.quantity || 0}</td>
                             <td className="td-right">${money(item.unit_cost)}</td>
                             <td className="td-right">
-                              <strong>${money(lineTotal)}</strong>
+                              <strong>${money(item.line_total)}</strong>
                             </td>
                           </tr>
                         );
@@ -162,6 +180,9 @@ export default function PurchaseHistory() {
                         <strong>Source:</strong> {r.source?.name || "—"}
                       </span>
                       <span>
+                        <strong>Vendor:</strong> {r.vendor?.name || "—"}
+                      </span>
+                      <span>
                         <strong>Seller:</strong> {r.seller_name || "—"}
                       </span>
                     </div>
@@ -171,6 +192,18 @@ export default function PurchaseHistory() {
                     <div className="purchase-history-total-label">Total Cost</div>
                     <div className="purchase-history-total-value">${money(r.total_cost)}</div>
                   </div>
+                </div>
+
+                <div className="purchase-history-meta">
+                  <span>
+                    <strong>Subtotal:</strong> ${money(r.subtotal)}
+                  </span>
+                  <span>
+                    <strong>Shipping:</strong> ${money(r.shipping_cost)}
+                  </span>
+                  <span>
+                    <strong>Tax:</strong> ${money(r.tax)}
+                  </span>
                 </div>
 
                 <div className="purchase-history-notes-box">
@@ -209,7 +242,7 @@ export default function PurchaseHistory() {
     <div className="page">
       <PageHeader
         title="Purchase History"
-        subtitle="Review past purchases, sources, sellers, and line item details."
+        subtitle="Review past purchases, suppliers, totals, and line item details."
       />
 
       <div className="stats-grid">
@@ -239,7 +272,7 @@ export default function PurchaseHistory() {
           <div>
             <h3 className="card-title">Purchase Records</h3>
             <p className="card-subtitle">
-              Expand a purchase to see the items included in that entry.
+              Expand a purchase to see the inventory items included in that entry.
             </p>
           </div>
           <div className="count-badge">

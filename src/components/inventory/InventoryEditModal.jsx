@@ -4,40 +4,39 @@ import { useForm } from "react-hook-form";
 import {
   listCategories,
   listConditions,
-  listDeviceModels,
   listSources,
   listStatuses,
   listSubcategories,
-  listVariants,
 } from "@/data/lookups";
 
 import FieldError from "../ui/FieldError";
 
 const defaultValues = {
+  itemType: "part",
   description: "",
   sku: "",
-  cost: "0",
-  price: "",
-  qty: "0",
-
+  deviceLabel: "",
+  unitCost: "0",
+  askingPrice: "",
+  qty: "1",
   categoryId: "",
   subcategoryId: "",
-  deviceModelId: "",
-  variantId: "",
   conditionId: "",
   statusId: "",
   sourceId: "",
-
   isForSale: true,
+  notes: "",
 };
+
+function money(n) {
+  return Number(n || 0).toFixed(2);
+}
 
 export default function InventoryEditModal({ isOpen, item, saving = false, onClose, onSave }) {
   const [loadingLookups, setLoadingLookups] = useState(false);
 
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [models, setModels] = useState([]);
-  const [variants, setVariants] = useState([]);
   const [conditions, setConditions] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [sources, setSources] = useState([]);
@@ -55,11 +54,9 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
   });
 
   const categoryId = watch("categoryId");
-  const subcategoryId = watch("subcategoryId");
-  const deviceModelId = watch("deviceModelId");
   const isForSale = watch("isForSale");
-  const cost = watch("cost");
-  const price = watch("price");
+  const unitCost = watch("unitCost");
+  const askingPrice = watch("askingPrice");
   const qty = watch("qty");
 
   useEffect(() => {
@@ -69,7 +66,7 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
       try {
         setLoadingLookups(true);
 
-        const [cats, conditions, statuses, sources] = await Promise.all([
+        const [cats, conds, stats, srcs] = await Promise.all([
           listCategories(),
           listConditions(),
           listStatuses(),
@@ -77,9 +74,9 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
         ]);
 
         setCategories(cats || []);
-        setConditions(conditions || []);
-        setStatuses(statuses || []);
-        setSources(sources || []);
+        setConditions(conds || []);
+        setStatuses(stats || []);
+        setSources(srcs || []);
       } catch (e) {
         alert(e?.message || "Failed to load lookup lists.");
       } finally {
@@ -92,21 +89,20 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
     if (!isOpen || !item) return;
 
     const nextValues = {
+      itemType: item.item_type || "part",
       description: item.description || "",
       sku: item.sku || "",
-      cost: item.cost != null ? String(item.cost) : "0",
-      price: item.price != null ? String(item.price) : "",
-      qty: item.qty_on_hand != null ? String(item.qty_on_hand) : "0",
-
+      deviceLabel: item.device_label || "",
+      unitCost: item.unit_cost != null ? String(item.unit_cost) : "0",
+      askingPrice: item.asking_price != null ? String(item.asking_price) : "",
+      qty: item.qty_on_hand != null ? String(item.qty_on_hand) : "1",
       categoryId: item.category_id || "",
       subcategoryId: item.subcategory_id || "",
-      deviceModelId: item.device_model_id || "",
-      variantId: item.variant_id || "",
       conditionId: item.condition_id || "",
       statusId: item.status_id || "",
       sourceId: item.source_id || "",
-
-      isForSale: item.is_for_sale ?? item.price != null,
+      isForSale: item.is_for_sale ?? item.asking_price != null,
+      notes: item.notes || "",
     };
 
     reset(nextValues);
@@ -119,76 +115,32 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
       try {
         if (!categoryId) {
           setSubcategories([]);
-          setModels([]);
-          setVariants([]);
           setValue("subcategoryId", "");
-          setValue("deviceModelId", "");
-          setValue("variantId", "");
           return;
         }
 
-        const [subs, mods] = await Promise.all([
-          listSubcategories(categoryId),
-          listDeviceModels({ categoryId }),
-        ]);
-
+        const subs = await listSubcategories(categoryId);
         setSubcategories(subs || []);
-        setModels(mods || []);
       } catch (e) {
-        alert(e?.message || "Failed to load subcategories/models.");
+        alert(e?.message || "Failed to load subcategories.");
       }
     })();
   }, [isOpen, categoryId, setValue]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    (async () => {
-      try {
-        if (!subcategoryId) {
-          const mods = categoryId ? await listDeviceModels({ categoryId }) : [];
-          setModels(mods || []);
-          setVariants([]);
-          return;
-        }
-
-        const mods = await listDeviceModels({ categoryId, subcategoryId });
-        setModels(mods || []);
-        setVariants([]);
-      } catch (e) {
-        alert(e?.message || "Failed to load models.");
-      }
-    })();
-  }, [isOpen, subcategoryId, categoryId]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    (async () => {
-      try {
-        if (!deviceModelId) {
-          setVariants([]);
-          return;
-        }
-
-        const v = await listVariants(deviceModelId);
-        setVariants(v || []);
-      } catch (e) {
-        alert(e?.message || "Failed to load variants.");
-      }
-    })();
-  }, [isOpen, deviceModelId]);
 
   async function submit(values) {
     if (!item?.id) {
       alert("Missing inventory item id.");
       return;
     }
+
     const cleanDesc = values.description.trim();
     const cleanSku = values.sku.trim();
+    const cleanDeviceLabel = values.deviceLabel.trim();
+    const cleanNotes = values.notes.trim();
 
-    const costNum = Number(values.cost);
-    const priceNum = values.price === "" || values.price == null ? null : Number(values.price);
+    const unitCostNum = Number(values.unitCost);
+    const askingPriceNum =
+      values.askingPrice === "" || values.askingPrice == null ? null : Number(values.askingPrice);
     const qtyNum = parseInt(values.qty, 10);
 
     if (!cleanDesc) {
@@ -196,53 +148,50 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
       return;
     }
 
-    if (Number.isNaN(costNum) || costNum < 0) {
+    if (Number.isNaN(unitCostNum) || unitCostNum < 0) {
       alert("Cost must be a valid number ≥ 0.");
       return;
     }
 
     if (Number.isNaN(qtyNum) || qtyNum < 0) {
-      alert("Qty must be a whole number ≥ 0.");
+      alert("Quantity must be a whole number ≥ 0.");
       return;
     }
 
     if (values.isForSale) {
-      if (priceNum == null || Number.isNaN(priceNum) || priceNum < 0) {
-        alert("Price must be a valid number ≥ 0 for sale items.");
+      if (askingPriceNum == null || Number.isNaN(askingPriceNum) || askingPriceNum < 0) {
+        alert("Asking price must be a valid number ≥ 0 for sale items.");
         return;
       }
 
-      if (priceNum < costNum) {
-        const ok = confirm("Price is lower than cost. Continue?");
+      if (askingPriceNum < unitCostNum) {
+        const ok = confirm("Asking price is lower than cost. Continue?");
         if (!ok) return;
       }
     }
 
     await onSave({
       id: item.id,
+      item_type: values.itemType || "part",
       description: cleanDesc,
       sku: cleanSku || null,
-      cost: costNum,
-      price: values.isForSale ? priceNum : null,
+      device_label: cleanDeviceLabel || null,
+      unit_cost: unitCostNum,
+      asking_price: values.isForSale ? askingPriceNum : null,
       is_for_sale: values.isForSale,
+      quantity: qtyNum,
       qty_on_hand: qtyNum,
-
       category_id: values.categoryId || null,
       subcategory_id: values.subcategoryId || null,
-      device_model_id: values.deviceModelId || null,
-      variant_id: values.variantId || null,
       condition_id: values.conditionId || null,
       status_id: values.statusId || null,
       source_id: values.sourceId || null,
+      notes: cleanNotes || null,
     });
   }
 
-  function money(n) {
-    return Number(n || 0).toFixed(2);
-  }
-
-  const watchedCost = Number(cost || 0);
-  const watchedPrice = Number(price || 0);
+  const watchedCost = Number(unitCost || 0);
+  const watchedPrice = Number(askingPrice || 0);
   const watchedQty = Number(qty || 0);
 
   if (!isOpen || !item?.id) return null;
@@ -272,7 +221,9 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
         <div className="card-header-row">
           <div>
             <h3 className="card-title">Edit Inventory Item</h3>
-            <p className="card-subtitle">Update pricing, quantity, and catalog details.</p>
+            <p className="card-subtitle">
+              Update inventory details, stock values, classification, and pricing.
+            </p>
           </div>
         </div>
 
@@ -281,21 +232,32 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
         ) : (
           <form onSubmit={handleSubmit(submit)}>
             <div className="section-title">Item Details</div>
+
             <div className="form-grid">
-              <div className="field-full">
-                <label className="label" htmlFor="description">
-                  Description
+              <div>
+                <label className="label" htmlFor="itemType">
+                  Item Type
                 </label>
-                <textarea
-                  id="description"
-                  {...register("description", {
-                    required: "Description is required.",
-                    validate: (value) => value.trim() !== "" || "Description is required.",
-                  })}
-                  rows={3}
-                  className="textarea"
+                <select id="itemType" {...register("itemType")} className="select">
+                  <option value="donor_device">Donor Device</option>
+                  <option value="part">Part</option>
+                  <option value="finished_product">Finished Product</option>
+                  <option value="supply">Supply</option>
+                  <option value="tool">Tool</option>
+                  <option value="accessory">Accessory</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label" htmlFor="deviceLabel">
+                  Device Label
+                </label>
+                <input
+                  id="deviceLabel"
+                  {...register("deviceLabel")}
+                  className="input"
+                  placeholder="Optional device label"
                 />
-                <FieldError error={errors.description?.message} />
               </div>
 
               <div>
@@ -316,7 +278,10 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
                     validate: (value) => {
                       if (value === "" || value == null) return "Quantity is required.";
                       if (!/^\d+$/.test(String(value))) {
-                        return "Qty must be a whole number ≥ 0.";
+                        return "Quantity must be a whole number ≥ 0.";
+                      }
+                      if (parseInt(value, 10) < 0) {
+                        return "Quantity must be a whole number ≥ 0.";
                       }
                       return true;
                     },
@@ -326,9 +291,39 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
                 />
                 <FieldError error={errors.qty?.message} />
               </div>
+
+              <div className="field-full">
+                <label className="label" htmlFor="description">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  {...register("description", {
+                    required: "Description is required.",
+                    validate: (value) => value.trim() !== "" || "Description is required.",
+                  })}
+                  rows={3}
+                  className="textarea"
+                />
+                <FieldError error={errors.description?.message} />
+              </div>
+
+              <div className="field-full">
+                <label className="label" htmlFor="notes">
+                  Notes
+                </label>
+                <textarea
+                  id="notes"
+                  {...register("notes")}
+                  rows={3}
+                  className="textarea"
+                  placeholder="Condition notes, testing notes, source details, repair notes, etc."
+                />
+              </div>
             </div>
 
             <div className="section-title">Catalog Placement</div>
+
             <div className="form-grid">
               <div>
                 <label className="label" htmlFor="categoryId">
@@ -358,44 +353,6 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
                   {subcategories.map((sc) => (
                     <option key={sc.id} value={sc.id}>
                       {sc.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="label" htmlFor="deviceModelId">
-                  Model
-                </label>
-                <select
-                  id="deviceModelId"
-                  {...register("deviceModelId")}
-                  className="select"
-                  disabled={!categoryId}
-                >
-                  <option value="">(none)</option>
-                  {models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="label" htmlFor="variantId">
-                  Variant
-                </label>
-                <select
-                  id="variantId"
-                  {...register("variantId")}
-                  className="select"
-                  disabled={!deviceModelId}
-                >
-                  <option value="">(none)</option>
-                  {variants.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
                     </option>
                   ))}
                 </select>
@@ -445,14 +402,15 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
             </div>
 
             <div className="section-title">Pricing</div>
+
             <div className="form-grid">
               <div>
-                <label className="label" htmlFor="cost">
+                <label className="label" htmlFor="unitCost">
                   Cost
                 </label>
                 <input
-                  id="cost"
-                  {...register("cost", {
+                  id="unitCost"
+                  {...register("unitCost", {
                     required: "Cost is required.",
                     validate: (value) => {
                       if (value === "" || value == null) return "Cost is required.";
@@ -466,7 +424,7 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
                   className="input"
                   inputMode="decimal"
                 />
-                <FieldError error={errors.cost?.message} />
+                <FieldError error={errors.unitCost?.message} />
               </div>
 
               <div>
@@ -481,34 +439,34 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
                   })}
                 >
                   <option value="true">For Sale</option>
-                  <option value="false">Internal Use / Tool / Part</option>
+                  <option value="false">Internal Use / Non-Sale</option>
                 </select>
               </div>
 
               <div>
-                <label className="label" htmlFor="price">
-                  Price
+                <label className="label" htmlFor="askingPrice">
+                  Asking Price
                 </label>
                 <input
-                  id="price"
-                  {...register("price", {
+                  id="askingPrice"
+                  {...register("askingPrice", {
                     validate: (value) => {
                       if (!isForSale) {
                         if (value === "" || value == null) return true;
                         const num = Number(value);
                         if (Number.isNaN(num) || num < 0) {
-                          return "Price must be blank or a valid number ≥ 0.";
+                          return "Asking price must be blank or a valid number ≥ 0.";
                         }
                         return true;
                       }
 
                       if (value === "" || value == null) {
-                        return "Price is required for sale items.";
+                        return "Asking price is required for sale items.";
                       }
 
                       const num = Number(value);
                       if (Number.isNaN(num) || num < 0) {
-                        return "Price must be a valid number ≥ 0.";
+                        return "Asking price must be a valid number ≥ 0.";
                       }
 
                       return true;
@@ -517,16 +475,16 @@ export default function InventoryEditModal({ isOpen, item, saving = false, onClo
                   className="input"
                   inputMode="decimal"
                 />
-                <FieldError error={errors.price?.message} />
+                <FieldError error={errors.askingPrice?.message} />
               </div>
 
               <div className="inventory-summary-box">
                 <div className="inventory-summary-row">
-                  <span>Projected margin</span>
+                  <span>Projected Margin</span>
                   <strong>${money(watchedPrice - watchedCost)}</strong>
                 </div>
                 <div className="inventory-summary-row">
-                  <span>Qty value</span>
+                  <span>Qty Value</span>
                   <strong>${money(watchedPrice * watchedQty)}</strong>
                 </div>
               </div>

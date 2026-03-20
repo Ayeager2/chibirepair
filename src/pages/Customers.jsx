@@ -84,9 +84,7 @@ export default function Customers() {
       await setCustomerActive(customer.id, ownerId, nextActive);
 
       setCustomers((prev) =>
-        prev.map((row) =>
-          row.id === customer.id ? { ...row, active: nextActive } : row
-        )
+        prev.map((row) => (row.id === customer.id ? { ...row, active: nextActive } : row))
       );
     } catch (err) {
       console.error("Failed to update customer active state:", err);
@@ -99,9 +97,7 @@ export default function Customers() {
   let customersContent;
 
   if (loading) {
-    customersContent = (
-      <LoadingCard message="Loading customers..." />
-    );
+    customersContent = <LoadingCard message="Loading customers..." />;
   } else if (customers.length === 0) {
     customersContent = (
       <EmptyState
@@ -112,8 +108,8 @@ export default function Customers() {
   } else {
     customersContent = (
       <TableWrap>
-            <table className="app-table customers-table">
-            <thead>
+        <table className="app-table customers-table">
+          <thead>
             <tr>
               <th className="th-left">Customer</th>
               <th className="th-left">Phone</th>
@@ -125,9 +121,7 @@ export default function Customers() {
           </thead>
           <tbody>
             {customers.map((customer) => {
-              const location = [customer.city, customer.state]
-                .filter(Boolean)
-                .join(", ");
+              const location = [customer.city, customer.state].filter(Boolean).join(", ");
 
               const toggleButtonClass = customer.active
                 ? "customer-toggle-button customer-toggle-warning"
@@ -148,9 +142,7 @@ export default function Customers() {
                   <td className="td-left">
                     <div className="customers-name">{customer.name}</div>
                     {customer.address_line1 ? (
-                      <div className="small-muted">
-                        {customer.address_line1}
-                      </div>
+                      <div className="small-muted">{customer.address_line1}</div>
                     ) : null}
                   </td>
 
@@ -162,9 +154,7 @@ export default function Customers() {
                     {customer.email || <span className="muted-text">—</span>}
                   </td>
 
-                  <td className="td-left">
-                    {location || <span className="muted-text">—</span>}
-                  </td>
+                  <td className="td-left">{location || <span className="muted-text">—</span>}</td>
 
                   <td className="td-left">
                     <StatusBadge variant={customer.active ? "success" : "neutral"}>
@@ -201,84 +191,80 @@ export default function Customers() {
     );
   }
 
-return (
-  <div className="page">
-    <PageHeader
-      title="Customers"
-      subtitle={customerCountLabel}
-      actions={
-        <Link to="/customers/new" className="button-primary">
-          Add Customer
-        </Link>
-      }
-    />
+  return (
+    <div className="page">
+      <PageHeader
+        title="Customers"
+        subtitle={customerCountLabel}
+        actions={
+          <Link to="/customers/new" className="button-primary">
+            Add Customer
+          </Link>
+        }
+      />
 
-    <div className="stats-grid">
-      <div className="stat-card">
-        <div className="stat-label">Customers</div>
-        <div className="stat-value">{loading ? "—" : customers.length}</div>
-      </div>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-label">Customers</div>
+          <div className="stat-value">{loading ? "—" : customers.length}</div>
+        </div>
 
-      <div className="stat-card">
-        <div className="stat-label">Search</div>
-        <div className="stat-value-small">
-          {search.trim() ? search : "No filter"}
+        <div className="stat-card">
+          <div className="stat-label">Search</div>
+          <div className="stat-value-small">{search.trim() ? search : "No filter"}</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">Mode</div>
+          <div className="stat-value-small">{activeOnly ? "Active Only" : "All Customers"}</div>
         </div>
       </div>
 
-      <div className="stat-card">
-        <div className="stat-label">Mode</div>
-        <div className="stat-value-small">
-          {activeOnly ? "Active Only" : "All Customers"}
-        </div>
-      </div>
-    </div>
-
-    <div className="card">
-      <div className="card-header">
-        <h3 className="card-title">Customer Directory</h3>
-        <p className="card-subtitle">
-          Search, review, edit, and activate or deactivate customer records.
-        </p>
-      </div>
-
-      <div className="form-grid-2 customer-filters">
-        <div>
-          <label htmlFor="customers-search" className="label">
-            Search
-          </label>
-          <input
-            id="customers-search"
-            type="text"
-            className="input"
-            placeholder="Search by name, phone, email, city..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Customer Directory</h3>
+          <p className="card-subtitle">
+            Search, review, edit, and activate or deactivate customer records.
+          </p>
         </div>
 
-        <div className="customer-filter-checkbox-wrap">
+        <div className="form-grid-2 customer-filters">
           <div>
-            <label htmlFor="customers-active-only" className="label">
-              Filter
+            <label htmlFor="customers-search" className="label">
+              Search
             </label>
-            <label className="customer-checkbox">
-              <input
-                id="customers-active-only"
-                type="checkbox"
-                checked={activeOnly}
-                onChange={(e) => setActiveOnly(e.target.checked)}
-              />
-              <span>Show active only</span>
-            </label>
+            <input
+              id="customers-search"
+              type="text"
+              className="input"
+              placeholder="Search by name, phone, email, city..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="customer-filter-checkbox-wrap">
+            <div>
+              <label htmlFor="customers-active-only" className="label">
+                Filter
+              </label>
+              <label className="customer-checkbox">
+                <input
+                  id="customers-active-only"
+                  type="checkbox"
+                  checked={activeOnly}
+                  onChange={(e) => setActiveOnly(e.target.checked)}
+                />
+                <span>Show active only</span>
+              </label>
+            </div>
           </div>
         </div>
+
+        {error ? <div className="customer-error">{error}</div> : null}
+
+        {customersContent}
       </div>
-
-      {error ? <div className="customer-error">{error}</div> : null}
-
-      {customersContent}
     </div>
-  </div>
-);
+  );
 }

@@ -18,11 +18,7 @@ function applyCustomerSearch(query, search) {
   );
 }
 
-export async function listCustomers({
-  ownerId,
-  search = "",
-  activeOnly = false,
-} = {}) {
+export async function listCustomers({ ownerId, search = "", activeOnly = false } = {}) {
   if (!ownerId) {
     throw new Error("listCustomers: ownerId is required");
   }
@@ -140,9 +136,7 @@ export async function getCustomerById(id, ownerId) {
 }
 
 export async function createCustomer(payload) {
-  const { data } = await db((s) =>
-    s.from("customers").insert([payload]).select().single()
-  );
+  const { data } = await db((s) => s.from("customers").insert([payload]).select().single());
 
   return data;
 }
@@ -157,13 +151,7 @@ export async function updateCustomer(id, ownerId, payload) {
   }
 
   const { data } = await db((s) =>
-    s
-      .from("customers")
-      .update(payload)
-      .eq("id", id)
-      .eq("owner_id", ownerId)
-      .select()
-      .single()
+    s.from("customers").update(payload).eq("id", id).eq("owner_id", ownerId).select().single()
   );
 
   return data;

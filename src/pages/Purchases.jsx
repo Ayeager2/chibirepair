@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../auth/useAuth";
-import { listSources } from "../data/lookups";
-import { listPurchaseProducts, createPurchaseWithItems } from "../data/purchases";
+import { listSources, listVendors } from "../data/lookups";
+import { listPurchaseInventory, createPurchaseWithItems } from "../data/purchases";
 
 import "../styles/purchases.css";
 import TableWrap from "@/components/ui/TableWrap";
@@ -11,7 +11,8 @@ import PageHeader from "@/components/ui/PageHeader";
 
 function emptyItem() {
   return {
-    product_id: "",
+    inventory_item_id: "",
+    description: "",
     quantity: "1",
     unit_cost: "0",
   };
@@ -21,18 +22,27 @@ function money(n) {
   return Number(n || 0).toFixed(2);
 }
 
+function itemDisplayLabel(item) {
+  if (!item) return "";
+  return item.device_label || item.description || item.sku || "Unnamed item";
+}
+
 export default function Purchases() {
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [products, setProducts] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
   const [sources, setSources] = useState([]);
+  const [vendors, setVendors] = useState([]);
 
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
   const [sourceId, setSourceId] = useState("");
+  const [vendorId, setVendorId] = useState("");
   const [sellerName, setSellerName] = useState("");
+  const [shippingCost, setShippingCost] = useState("0");
+  const [tax, setTax] = useState("0");
   const [notes, setNotes] = useState("");
 
   const [items, setItems] = useState([emptyItem()]);
@@ -41,12 +51,16 @@ export default function Purchases() {
     (async () => {
       try {
         setLoading(true);
-        const [productRows, sourceRows] = await Promise.all([
-          listPurchaseProducts(),
+
+        const [inventoryRows, sourceRows, vendorRows] = await Promise.all([
+          listPurchaseInventory(),
           listSources(),
+          listVendors(),
         ]);
-        setProducts(productRows || []);
+
+        setInventoryItems(inventoryRows || []);
         setSources(sourceRows || []);
+        setVendors(vendorRows || []);
       } catch (e) {
         alert(e?.message || "Failed to load purchase form.");
       } finally {
@@ -67,7 +81,7 @@ export default function Purchases() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const totalCost = useMemo(() => {
+  const subtotal = useMemo(() => {
     return items.reduce((sum, row) => {
       const qty = parseInt(row.quantity, 10);
       const cost = Number(row.unit_cost);
@@ -84,14 +98,28 @@ export default function Purchases() {
     }, 0);
   }, [items]);
 
+  const shippingCostNum = Number(shippingCost || 0);
+  const taxNum = Number(tax || 0);
+  const totalCost =
+    subtotal +
+    (Number.isNaN(shippingCostNum) ? 0 : shippingCostNum) +
+    (Number.isNaN(taxNum) ? 0 : taxNum);
+
   const selectedSourceName = useMemo(() => {
     return sources.find((s) => s.id === sourceId)?.name || "No source selected";
   }, [sources, sourceId]);
 
+  const selectedVendorName = useMemo(() => {
+    return vendors.find((v) => v.id === vendorId)?.name || "No vendor selected";
+  }, [vendors, vendorId]);
+
   function resetForm() {
     setPurchaseDate(new Date().toISOString().slice(0, 10));
     setSourceId("");
+    setVendorId("");
     setSellerName("");
+    setShippingCost("0");
+    setTax("0");
     setNotes("");
     setItems([emptyItem()]);
   }
@@ -104,9 +132,21 @@ export default function Purchases() {
       return;
     }
 
-    const validItems = items.filter((x) => x.product_id);
-    if (validItems.length === 0) {
-      alert("Add at least one product line.");
+    const cleanedItems = items
+      .map((row) => {
+        const selected = inventoryItems.find((p) => p.id === row.inventory_item_id);
+
+        return {
+          inventory_item_id: row.inventory_item_id || null,
+          description: (row.description || "").trim() || selected?.description || "",
+          quantity: row.quantity,
+          unit_cost: row.unit_cost,
+        };
+      })
+      .filter((x) => x.description);
+
+    if (cleanedItems.length === 0) {
+      alert("Add at least one valid purchase line.");
       return;
     }
 
@@ -116,9 +156,12 @@ export default function Purchases() {
       await createPurchaseWithItems(user.id, {
         purchase_date: purchaseDate,
         source_id: sourceId || null,
+        vendor_id: vendorId || null,
         seller_name: sellerName,
+        shipping_cost: shippingCost,
+        tax,
         notes,
-        items: validItems,
+        items: cleanedItems,
       });
 
       resetForm();
@@ -142,7 +185,7 @@ export default function Purchases() {
     <div className="page">
       <PageHeader
         title="Purchase Entry"
-        subtitle="Record incoming stock purchases and update inventory quantities cleanly."
+        subtitle="Record incoming stock purchases, costs, and supplier details."
       />
 
       <div className="stats-grid">
@@ -159,6 +202,11 @@ export default function Purchases() {
         <div className="stat-card">
           <div className="stat-label">Source</div>
           <div className="stat-value-small">{selectedSourceName}</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">Vendor</div>
+          <div className="stat-value-small">{selectedVendorName}</div>
         </div>
 
         <div className="stat-card">
@@ -210,6 +258,25 @@ export default function Purchases() {
             </div>
 
             <div>
+              <label className="label" htmlFor="vendor-select">
+                Vendor
+              </label>
+              <select
+                id="vendor-select"
+                value={vendorId}
+                onChange={(e) => setVendorId(e.target.value)}
+                className="select"
+              >
+                <option value="">(none)</option>
+                {vendors.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label className="label" htmlFor="seller-name">
                 Seller Name
               </label>
@@ -219,6 +286,34 @@ export default function Purchases() {
                 onChange={(e) => setSellerName(e.target.value)}
                 className="input"
                 placeholder="Optional seller / account / person"
+              />
+            </div>
+
+            <div>
+              <label className="label" htmlFor="shipping-cost">
+                Shipping Cost
+              </label>
+              <input
+                id="shipping-cost"
+                value={shippingCost}
+                onChange={(e) => setShippingCost(e.target.value)}
+                className="input"
+                inputMode="decimal"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="label" htmlFor="tax">
+                Tax
+              </label>
+              <input
+                id="tax"
+                value={tax}
+                onChange={(e) => setTax(e.target.value)}
+                className="input"
+                inputMode="decimal"
+                placeholder="0.00"
               />
             </div>
 
@@ -232,7 +327,7 @@ export default function Purchases() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 className="textarea"
-                placeholder="Shipping details, order notes, invoice reference, item condition notes, bundle purchase notes, etc."
+                placeholder="Shipping details, order notes, invoice reference, item condition notes, bundle notes, etc."
               />
             </div>
           </div>
@@ -242,7 +337,7 @@ export default function Purchases() {
           <div className="card-header-row">
             <div>
               <h3 className="card-title">Purchase Items</h3>
-              <p className="card-subtitle">Add one line per product received.</p>
+              <p className="card-subtitle">Add one line per inventory item received.</p>
             </div>
 
             <button type="button" onClick={addLine} className="button-primary">
@@ -254,7 +349,8 @@ export default function Purchases() {
             <table className="app-table purchases-table">
               <thead>
                 <tr>
-                  <th className="th-left">Product</th>
+                  <th className="th-left">Inventory Item</th>
+                  <th className="th-left">Description</th>
                   <th className="th-right">Current Qty</th>
                   <th className="th-right">Quantity</th>
                   <th className="th-right">Unit Cost</th>
@@ -264,7 +360,7 @@ export default function Purchases() {
               </thead>
               <tbody>
                 {items.map((row, index) => {
-                  const selected = products.find((p) => p.id === row.product_id);
+                  const selected = inventoryItems.find((p) => p.id === row.inventory_item_id);
                   const qty = parseInt(row.quantity, 10) || 0;
                   const unitCost = Number(row.unit_cost || 0);
                   const lineTotal = qty * unitCost;
@@ -273,38 +369,48 @@ export default function Purchases() {
                     <tr key={index} className="tr">
                       <td className="td-top">
                         <select
-                          value={row.product_id}
+                          value={row.inventory_item_id}
                           onChange={(e) => {
-                            const productId = e.target.value;
-                            const selectedProduct = products.find((p) => p.id === productId);
+                            const inventoryItemId = e.target.value;
+                            const selectedItem = inventoryItems.find(
+                              (p) => p.id === inventoryItemId
+                            );
 
                             updateItem(index, {
-                              product_id: productId,
+                              inventory_item_id: inventoryItemId,
+                              description: selectedItem?.description || "",
                               unit_cost:
-                                selectedProduct && selectedProduct.cost != null
-                                  ? String(selectedProduct.cost)
+                                selectedItem && selectedItem.unit_cost != null
+                                  ? String(selectedItem.unit_cost)
                                   : "0",
                             });
                           }}
                           className="select"
                         >
-                          <option value="">(select product)</option>
-                          {products.map((p) => (
+                          <option value="">(select inventory item)</option>
+                          {inventoryItems.map((p) => (
                             <option key={p.id} value={p.id}>
-                              {p.device_label || p.description}
+                              {itemDisplayLabel(p)}
                             </option>
                           ))}
                         </select>
 
                         {selected ? (
-                          <div className="purchase-product-hint">
-                            {selected.device_label || selected.description}
-                          </div>
+                          <div className="purchase-product-hint">{itemDisplayLabel(selected)}</div>
                         ) : (
                           <div className="purchase-product-hint-muted">
                             Choose an inventory item for this line.
                           </div>
                         )}
+                      </td>
+
+                      <td className="td-top">
+                        <input
+                          value={row.description}
+                          onChange={(e) => updateItem(index, { description: e.target.value })}
+                          className="input"
+                          placeholder="Line description"
+                        />
                       </td>
 
                       <td className="td-right">
@@ -367,6 +473,18 @@ export default function Purchases() {
               <div className="purchase-total-chip">
                 <span>Units</span>
                 <strong>{totalUnits}</strong>
+              </div>
+              <div className="purchase-total-chip">
+                <span>Subtotal</span>
+                <strong>${money(subtotal)}</strong>
+              </div>
+              <div className="purchase-total-chip">
+                <span>Shipping</span>
+                <strong>${money(shippingCostNum)}</strong>
+              </div>
+              <div className="purchase-total-chip">
+                <span>Tax</span>
+                <strong>${money(taxNum)}</strong>
               </div>
             </div>
 

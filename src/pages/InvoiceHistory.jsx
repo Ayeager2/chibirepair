@@ -22,7 +22,9 @@ function getLocalDateTimeInputValue() {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
 
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(
+    now.getHours()
+  )}:${pad(now.getMinutes())}`;
 }
 
 function emptyPaymentForm() {
@@ -30,6 +32,7 @@ function emptyPaymentForm() {
     amount: "",
     payment_method: "",
     payment_date: getLocalDateTimeInputValue(),
+    notes: "",
   };
 }
 
@@ -39,10 +42,21 @@ function statusBadgeClass(status) {
       return "invoice-status-badge invoice-status-paid";
     case "partial":
       return "invoice-status-badge invoice-status-partial";
+    case "refunded":
+      return "invoice-status-badge invoice-status-refunded";
+    case "void":
+      return "invoice-status-badge invoice-status-void";
     case "unpaid":
     default:
       return "invoice-status-badge invoice-status-unpaid";
   }
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString();
 }
 
 function formatDateTime(value) {
@@ -50,6 +64,15 @@ function formatDateTime(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleString();
+}
+
+function inventoryLabel(item) {
+  return (
+    item?.inventory_item?.device_label ||
+    item?.inventory_item?.description ||
+    item?.description ||
+    ""
+  );
 }
 
 export default function InvoiceHistory() {
@@ -69,7 +92,11 @@ export default function InvoiceHistory() {
   const [savingPaymentId, setSavingPaymentId] = useState(null);
 
   const load = useCallback(async () => {
-    if (!ownerId) return;
+    if (!ownerId) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -102,6 +129,8 @@ export default function InvoiceHistory() {
   }
 
   async function toggleExpand(invoiceId) {
+    if (!ownerId) return;
+
     if (expandedId === invoiceId) {
       setExpandedId(null);
       return;
@@ -171,6 +200,7 @@ export default function InvoiceHistory() {
         paymentDate: form.payment_date
           ? new Date(form.payment_date).toISOString()
           : new Date().toISOString(),
+        notes: form.notes,
       });
 
       const refreshedPayments = await getInvoicePayments(invoiceRow.id, ownerId);
@@ -217,10 +247,12 @@ export default function InvoiceHistory() {
   if (loading) {
     invoicesContent = <LoadingCard message="Loading invoices..." />;
   } else if (rows.length === 0) {
-    <EmptyState
-      title="No invoices yet"
-      message="Once invoices are created, they will appear here with balances, items, and payment history."
-    />;
+    invoicesContent = (
+      <EmptyState
+        title="No invoices yet"
+        message="Once invoices are created, they will appear here with balances, items, and payment history."
+      />
+    );
   } else {
     invoicesContent = (
       <div className="card">
@@ -271,7 +303,7 @@ export default function InvoiceHistory() {
                         <thead>
                           <tr>
                             <th className="th-left">Description</th>
-                            <th className="th-left">Product</th>
+                            <th className="th-left">Inventory Item</th>
                             <th className="th-left">SKU</th>
                             <th className="th-right">Qty</th>
                             <th className="th-right">Unit Price</th>
@@ -279,24 +311,16 @@ export default function InvoiceHistory() {
                           </tr>
                         </thead>
                         <tbody>
-                          {items.map((item) => {
-                            const productLabel =
-                              item.product?.device_label || item.product?.description || "";
-
-                            const lineTotal =
-                              Number(item.quantity || 0) * Number(item.unit_price || 0);
-
-                            return (
-                              <tr key={item.id} className="tr">
-                                <td className="td-left">{item.description || ""}</td>
-                                <td className="td-left">{productLabel}</td>
-                                <td className="td-left">{item.product?.sku || ""}</td>
-                                <td className="td-right">{item.quantity}</td>
-                                <td className="td-right">{money(item.unit_price)}</td>
-                                <td className="td-right">{money(lineTotal)}</td>
-                              </tr>
-                            );
-                          })}
+                          {items.map((item) => (
+                            <tr key={item.id} className="tr">
+                              <td className="td-left">{item.description || ""}</td>
+                              <td className="td-left">{inventoryLabel(item)}</td>
+                              <td className="td-left">{item.inventory_item?.sku || ""}</td>
+                              <td className="td-right">{item.quantity}</td>
+                              <td className="td-right">{money(item.unit_price)}</td>
+                              <td className="td-right">{money(item.line_total)}</td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -333,6 +357,7 @@ export default function InvoiceHistory() {
                             <th className="th-left">Date</th>
                             <th className="th-left">Method</th>
                             <th className="th-right">Amount</th>
+                            <th className="th-left">Notes</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -341,6 +366,7 @@ export default function InvoiceHistory() {
                               <td className="td-left">{formatDateTime(payment.payment_date)}</td>
                               <td className="td-left">{payment.payment_method || ""}</td>
                               <td className="td-right">{money(payment.amount)}</td>
+                              <td className="td-left">{payment.notes || "—"}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -353,7 +379,7 @@ export default function InvoiceHistory() {
                   <React.Fragment key={r.id}>
                     <tr className="tr">
                       <td className="td-left">{r.invoice_number}</td>
-                      <td className="td-left">{r.invoice_date || ""}</td>
+                      <td className="td-left">{formatDate(r.invoice_date)}</td>
                       <td className="td-left">{r.customer?.name || "(no customer)"}</td>
                       <td className="td-left">
                         <span className={statusBadgeClass(r.payment_status)}>
@@ -419,11 +445,11 @@ export default function InvoiceHistory() {
 
                             <div className="form-grid invoice-payment-grid">
                               <div>
-                                <label htmlFor="amount-input" className="label">
+                                <label htmlFor={`amount-input-${r.id}`} className="label">
                                   Amount
                                 </label>
                                 <input
-                                  id="amount-input"
+                                  id={`amount-input-${r.id}`}
                                   type="number"
                                   min="0.01"
                                   step="0.01"
@@ -441,11 +467,11 @@ export default function InvoiceHistory() {
                               </div>
 
                               <div>
-                                <label htmlFor="method-select" className="label">
+                                <label htmlFor={`method-select-${r.id}`} className="label">
                                   Method
                                 </label>
                                 <select
-                                  id="method-select"
+                                  id={`method-select-${r.id}`}
                                   value={paymentForm.payment_method}
                                   onChange={(e) =>
                                     updatePaymentForm(r.id, {
@@ -469,11 +495,11 @@ export default function InvoiceHistory() {
                               </div>
 
                               <div>
-                                <label htmlFor="datetime-local" className="label">
+                                <label htmlFor={`payment-date-${r.id}`} className="label">
                                   Payment Date
                                 </label>
                                 <input
-                                  id="datetime-local"
+                                  id={`payment-date-${r.id}`}
                                   type="datetime-local"
                                   value={paymentForm.payment_date}
                                   onChange={(e) =>
@@ -482,6 +508,25 @@ export default function InvoiceHistory() {
                                     })
                                   }
                                   className="input"
+                                  disabled={isPaidOff || savingPaymentId === r.id}
+                                />
+                              </div>
+
+                              <div className="field-full">
+                                <label htmlFor={`payment-notes-${r.id}`} className="label">
+                                  Notes
+                                </label>
+                                <input
+                                  id={`payment-notes-${r.id}`}
+                                  type="text"
+                                  value={paymentForm.notes}
+                                  onChange={(e) =>
+                                    updatePaymentForm(r.id, {
+                                      notes: e.target.value,
+                                    })
+                                  }
+                                  className="input"
+                                  placeholder="Optional payment note"
                                   disabled={isPaidOff || savingPaymentId === r.id}
                                 />
                               </div>

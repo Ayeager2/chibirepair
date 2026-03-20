@@ -5,7 +5,7 @@ import CustomerSelect from "@/components/customers/CustomerSelect";
 
 import { useAuth } from "../auth/useAuth";
 import { emptyInvoiceItem, createInvoiceWithItems } from "../data/invoices";
-import { searchProductsForInvoice } from "../data/products";
+import { searchInventoryForSale } from "../data/inventory";
 
 import "../styles/invoices.css";
 import TableWrap from "@/components/ui/TableWrap";
@@ -15,6 +15,11 @@ function formatMoney(value) {
   return Number(value || 0).toFixed(2);
 }
 
+function inventoryLabel(item) {
+  if (!item) return "";
+  return item.device_label || item.description || item.sku || "Unnamed inventory item";
+}
+
 export default function Invoices() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -22,42 +27,47 @@ export default function Invoices() {
 
   const [invoice, setInvoice] = useState({
     customer_id: "",
+    build_id: "",
     invoice_date: new Date().toISOString().slice(0, 10),
     payment_status: "unpaid",
     tax: "0",
+    discount: "0",
+    notes: "",
   });
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [items, setItems] = useState([emptyInvoiceItem()]);
-  const [productSearch, setProductSearch] = useState("");
-  const [productOptions, setProductOptions] = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [inventoryOptions, setInventoryOptions] = useState([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!ownerId) return;
 
     let ignore = false;
+
     const timer = setTimeout(async () => {
       try {
-        setLoadingProducts(true);
-        const rows = await searchProductsForInvoice({
+        setLoadingInventory(true);
+
+        const rows = await searchInventoryForSale({
           ownerId,
-          search: productSearch,
+          search: inventorySearch,
           limit: 25,
         });
 
         if (!ignore) {
-          setProductOptions(rows);
+          setInventoryOptions(rows || []);
         }
       } catch (err) {
-        console.error("Failed to load invoice products:", err);
+        console.error("Failed to load invoice inventory:", err);
         if (!ignore) {
-          setProductOptions([]);
+          setInventoryOptions([]);
         }
       } finally {
         if (!ignore) {
-          setLoadingProducts(false);
+          setLoadingInventory(false);
         }
       }
     }, 250);
@@ -66,7 +76,7 @@ export default function Invoices() {
       ignore = true;
       clearTimeout(timer);
     };
-  }, [ownerId, productSearch]);
+  }, [ownerId, inventorySearch]);
 
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => {
@@ -77,7 +87,8 @@ export default function Invoices() {
   }, [items]);
 
   const tax = Number(invoice.tax || 0);
-  const total = subtotal + tax;
+  const discount = Number(invoice.discount || 0);
+  const total = Math.max(0, subtotal + tax - discount);
 
   function handleInvoiceChange(field, value) {
     setInvoice((prev) => ({
@@ -98,8 +109,8 @@ export default function Invoices() {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   }
 
-  function handleProductSelect(index, productId) {
-    const selected = productOptions.find((p) => String(p.id) === String(productId));
+  function handleInventorySelect(index, inventoryItemId) {
+    const selected = inventoryOptions.find((p) => String(p.id) === String(inventoryItemId));
 
     setItems((prev) =>
       prev.map((item, i) =>
@@ -107,10 +118,10 @@ export default function Invoices() {
           ? item
           : {
               ...item,
-              product_id: productId,
+              inventory_item_id: inventoryItemId,
               description: selected?.description || "",
-              unit_price: selected?.price != null ? String(selected.price) : "0",
-              line_type: "product",
+              unit_price: selected?.asking_price != null ? String(selected.asking_price) : "0",
+              line_type: "item",
             }
       )
     );
@@ -165,7 +176,7 @@ export default function Invoices() {
     <div className="page">
       <PageHeader
         title="Create Invoice"
-        subtitle="Build an invoice, add products or custom lines, and save it to customer history."
+        subtitle="Build an invoice, add inventory or custom lines, and save it to customer history."
       />
 
       <div className="card">
@@ -190,10 +201,11 @@ export default function Invoices() {
           </div>
 
           <div>
-            <label htmlFor="date" className="label">
+            <label htmlFor="invoice-date" className="label">
               Invoice Date
             </label>
             <input
+              id="invoice-date"
               type="date"
               className="input"
               value={invoice.invoice_date}
@@ -202,18 +214,35 @@ export default function Invoices() {
           </div>
 
           <div>
-            <label htmlFor="select" className="label">
+            <label htmlFor="payment-status" className="label">
               Payment Status
             </label>
             <select
+              id="payment-status"
               className="select"
               value={invoice.payment_status}
               onChange={(e) => handleInvoiceChange("payment_status", e.target.value)}
             >
               <option value="unpaid">Unpaid</option>
-              <option value="paid">Paid</option>
               <option value="partial">Partial</option>
+              <option value="paid">Paid</option>
+              <option value="refunded">Refunded</option>
+              <option value="void">Void</option>
             </select>
+          </div>
+
+          <div className="field-full">
+            <label htmlFor="invoice-notes" className="label">
+              Notes
+            </label>
+            <textarea
+              id="invoice-notes"
+              className="textarea"
+              rows={3}
+              value={invoice.notes}
+              onChange={(e) => handleInvoiceChange("notes", e.target.value)}
+              placeholder="Optional invoice notes"
+            />
           </div>
         </div>
       </div>
@@ -223,7 +252,7 @@ export default function Invoices() {
           <div>
             <h3 className="card-title">Invoice Items</h3>
             <p className="card-subtitle">
-              Add line items, select products, and adjust descriptions or prices.
+              Add line items, select inventory, and adjust descriptions or prices.
             </p>
           </div>
 
@@ -231,9 +260,9 @@ export default function Invoices() {
             <input
               type="text"
               className="input invoices-search"
-              placeholder="Search products..."
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Search inventory..."
+              value={inventorySearch}
+              onChange={(e) => setInventorySearch(e.target.value)}
             />
             <button type="button" className="button-secondary" onClick={addItem}>
               Add Line
@@ -241,15 +270,15 @@ export default function Invoices() {
           </div>
         </div>
 
-        {loadingProducts ? (
-          <div className="small-muted invoices-loading-products">Loading products...</div>
+        {loadingInventory ? (
+          <div className="small-muted invoices-loading-products">Loading inventory...</div>
         ) : null}
 
         <TableWrap>
           <table className="app-table invoices-table">
             <thead>
               <tr>
-                <th className="th-left invoices-col-product">Product</th>
+                <th className="th-left invoices-col-product">Inventory Item</th>
                 <th className="th-left">Description</th>
                 <th className="th-right invoices-col-qty">Qty</th>
                 <th className="th-right invoices-col-price">Unit Price</th>
@@ -263,14 +292,14 @@ export default function Invoices() {
                   <td className="td-top">
                     <select
                       className="select"
-                      value={item.product_id}
-                      onChange={(e) => handleProductSelect(index, e.target.value)}
+                      value={item.inventory_item_id}
+                      onChange={(e) => handleInventorySelect(index, e.target.value)}
                     >
-                      <option value="">Select product</option>
-                      {productOptions.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.description}
-                          {product.sku ? ` (${product.sku})` : ""}
+                      <option value="">Select inventory item</option>
+                      {inventoryOptions.map((inventoryItem) => (
+                        <option key={inventoryItem.id} value={inventoryItem.id}>
+                          {inventoryLabel(inventoryItem)}
+                          {inventoryItem.sku ? ` (${inventoryItem.sku})` : ""}
                         </option>
                       ))}
                     </select>
@@ -342,6 +371,18 @@ export default function Invoices() {
                 className="input invoices-tax-input"
                 value={invoice.tax}
                 onChange={(e) => handleInvoiceChange("tax", e.target.value)}
+              />
+            </div>
+
+            <div className="invoices-summary-row invoices-summary-tax-row">
+              <span>Discount</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input invoices-tax-input"
+                value={invoice.discount}
+                onChange={(e) => handleInvoiceChange("discount", e.target.value)}
               />
             </div>
 

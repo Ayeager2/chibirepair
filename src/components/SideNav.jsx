@@ -21,10 +21,7 @@ export default function SideNav({
 
   function isActive(path, startsWith = false) {
     if (startsWith) {
-      return (
-        location.pathname === path ||
-        location.pathname.startsWith(`${path}/`)
-      );
+      return location.pathname === path || location.pathname.startsWith(`${path}/`);
     }
 
     return location.pathname === path;
@@ -115,17 +112,10 @@ export default function SideNav({
             Invoice History
           </Link>
         </div>
-
         <hr className="app-side-nav-divider" />
-
-        {themeSwitcher ? (
-          <div className="app-side-nav-section">{themeSwitcher}</div>
-        ) : null}
-
-        {logoutButton ? (
-          <div className="app-side-nav-section">{logoutButton}</div>
-        ) : null}
-
+        <hr />
+        <div className="app-side-nav-section">{themeSwitcher}</div>
+        <div className="app-side-nav-section">{logoutButton}</div>{" "}
         <div className="app-side-nav-tip">
           Tip: manage Categories / Subcategories / Models / Variants here.
         </div>

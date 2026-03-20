@@ -12,32 +12,42 @@ import InventoryTable from "@/components/inventory/InventoryTable";
 import {
   listCategories,
   listSubcategories,
-  listDeviceModels,
   listConditions,
   listStatuses,
   listSources,
-  listVariants,
 } from "../data/lookups";
 import { useAuth } from "../auth/useAuth";
-import { listProducts, createProduct, updateProduct, deleteProduct } from "../data/products";
+import {
+  listInventory,
+  createInventoryItem,
+  updateInventoryItem,
+  deleteInventoryItem,
+} from "../data/inventory";
 
 const defaultValues = {
+  itemType: "part",
   description: "",
   sku: "",
-  cost: "0",
-  price: "0",
-  qty: "0",
-
+  deviceLabel: "",
+  unitCost: "0",
+  askingPrice: "",
+  qty: "1",
   categoryId: "",
   subcategoryId: "",
-  deviceModelId: "",
-  variantId: "",
   conditionId: "",
   statusId: "",
   sourceId: "",
-
   isForSale: true,
+  notes: "",
 };
+
+function money(n) {
+  return Number(n || 0).toFixed(2);
+}
+
+function getName(row, key, nested) {
+  return row?.[key] ?? row?.[nested]?.name ?? "";
+}
 
 export default function Inventory() {
   const { user } = useAuth();
@@ -48,13 +58,20 @@ export default function Inventory() {
 
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [models, setModels] = useState([]);
-  const [variants, setVariants] = useState([]);
   const [conditions, setConditions] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [sources, setSources] = useState([]);
+
   const [editingItem, setEditingItem] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [conditionFilter, setConditionFilter] = useState("");
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [sortBy, setSortBy] = useState("description");
+  const [sortDirection, setSortDirection] = useState("asc");
 
   const {
     register,
@@ -69,29 +86,23 @@ export default function Inventory() {
   });
 
   const categoryId = watch("categoryId");
-  const subcategoryId = watch("subcategoryId");
-  const deviceModelId = watch("deviceModelId");
   const isForSale = watch("isForSale");
-  const cost = watch("cost");
-  const price = watch("price");
+  const unitCost = watch("unitCost");
+  const askingPrice = watch("askingPrice");
   const qty = watch("qty");
 
-  const watchedCost = Number(cost || 0);
-  const watchedPrice = Number(price || 0);
+  const watchedCost = Number(unitCost || 0);
+  const watchedPrice = Number(askingPrice || 0);
   const watchedQty = Number(qty || 0);
 
-  function money(n) {
-    return Number(n || 0).toFixed(2);
-  }
-
-  async function loadProducts() {
+  async function loadInventoryData() {
     setLoading(true);
     try {
-      const data = await listProducts();
+      const data = await listInventory();
       setRows(data || []);
     } catch (e) {
       console.error(e);
-      alert(e?.message || "Failed to load products.");
+      alert(e?.message || "Failed to load inventory.");
       setRows([]);
     } finally {
       setLoading(false);
@@ -101,9 +112,9 @@ export default function Inventory() {
   useEffect(() => {
     (async () => {
       try {
-        await loadProducts();
+        await loadInventoryData();
 
-        const [cats, conditions, stats, srcs] = await Promise.all([
+        const [cats, conds, stats, srcs] = await Promise.all([
           listCategories(),
           listConditions(),
           listStatuses(),
@@ -111,7 +122,7 @@ export default function Inventory() {
         ]);
 
         setCategories(cats || []);
-        setConditions(conditions || []);
+        setConditions(conds || []);
         setStatuses(stats || []);
         setSources(srcs || []);
       } catch (e) {
@@ -125,79 +136,22 @@ export default function Inventory() {
       try {
         if (!categoryId) {
           setSubcategories([]);
-          setModels([]);
-          setVariants([]);
-
           setValue("subcategoryId", "");
-          setValue("deviceModelId", "");
-          setValue("variantId", "");
           return;
         }
 
-        const [subs, mods] = await Promise.all([
-          listSubcategories(categoryId),
-          listDeviceModels({ categoryId }),
-        ]);
-
+        const subs = await listSubcategories(categoryId);
         setSubcategories(subs || []);
-        setModels(mods || []);
-
         setValue("subcategoryId", "");
-        setValue("deviceModelId", "");
-        setValue("variantId", "");
-        setVariants([]);
       } catch (e) {
-        alert(e?.message || "Failed to load subcategories/models.");
+        alert(e?.message || "Failed to load subcategories.");
       }
     })();
   }, [categoryId, setValue]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        if (!subcategoryId) {
-          const mods = categoryId ? await listDeviceModels({ categoryId }) : [];
-          setModels(mods || []);
-          setValue("deviceModelId", "");
-          setValue("variantId", "");
-          setVariants([]);
-          return;
-        }
-
-        const mods = await listDeviceModels({ categoryId, subcategoryId });
-        setModels(mods || []);
-        setValue("deviceModelId", "");
-        setValue("variantId", "");
-        setVariants([]);
-      } catch (e) {
-        alert(e?.message || "Failed to load models.");
-      }
-    })();
-  }, [subcategoryId, categoryId, setValue]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        if (!deviceModelId) {
-          setVariants([]);
-          setValue("variantId", "");
-          return;
-        }
-
-        const v = await listVariants(deviceModelId);
-        setVariants(v || []);
-        setValue("variantId", "");
-      } catch (e) {
-        alert(e?.message || "Failed to load variants.");
-      }
-    })();
-  }, [deviceModelId, setValue]);
-
   function resetForm() {
     reset(defaultValues);
     setSubcategories([]);
-    setModels([]);
-    setVariants([]);
   }
 
   async function onSubmit(values) {
@@ -208,9 +162,12 @@ export default function Inventory() {
 
     const cleanDesc = values.description.trim();
     const cleanSku = values.sku.trim();
+    const cleanDeviceLabel = values.deviceLabel.trim();
+    const cleanNotes = values.notes.trim();
 
-    const costNum = Number(values.cost);
-    const priceNum = values.price === "" || values.price == null ? null : Number(values.price);
+    const unitCostNum = Number(values.unitCost);
+    const askingPriceNum =
+      values.askingPrice === "" || values.askingPrice == null ? null : Number(values.askingPrice);
     const qtyNum = parseInt(values.qty, 10);
 
     if (!cleanDesc) {
@@ -218,24 +175,24 @@ export default function Inventory() {
       return;
     }
 
-    if (Number.isNaN(costNum) || costNum < 0) {
+    if (Number.isNaN(unitCostNum) || unitCostNum < 0) {
       alert("Cost must be a valid number ≥ 0.");
       return;
     }
 
     if (Number.isNaN(qtyNum) || qtyNum < 0) {
-      alert("Qty must be a whole number ≥ 0.");
+      alert("Quantity must be a whole number ≥ 0.");
       return;
     }
 
     if (values.isForSale) {
-      if (priceNum == null || Number.isNaN(priceNum) || priceNum < 0) {
-        alert("Price must be a valid number ≥ 0 for sale items.");
+      if (askingPriceNum == null || Number.isNaN(askingPriceNum) || askingPriceNum < 0) {
+        alert("Asking price must be a valid number ≥ 0 for sale items.");
         return;
       }
 
-      if (priceNum < costNum) {
-        const ok = confirm("Price is lower than cost. Continue?");
+      if (askingPriceNum < unitCostNum) {
+        const ok = confirm("Asking price is lower than cost. Continue?");
         if (!ok) return;
       }
     }
@@ -243,63 +200,45 @@ export default function Inventory() {
     try {
       setSaving(true);
 
-      await createProduct(user.id, {
+      await createInventoryItem({
+        owner_id: user.id,
+        item_type: values.itemType || "part",
         description: cleanDesc,
         sku: cleanSku || null,
-        cost: costNum,
-        price: values.isForSale ? priceNum : null,
+        device_label: cleanDeviceLabel || null,
+        unit_cost: unitCostNum,
+        asking_price: values.isForSale ? askingPriceNum : null,
         is_for_sale: values.isForSale,
+        quantity: qtyNum,
         qty_on_hand: qtyNum,
-
         category_id: values.categoryId || null,
         subcategory_id: values.subcategoryId || null,
-        device_model_id: values.deviceModelId || null,
-        variant_id: values.variantId || null,
         condition_id: values.conditionId || null,
         status_id: values.statusId || null,
         source_id: values.sourceId || null,
+        notes: cleanNotes || null,
       });
 
       resetForm();
-      await loadProducts();
+      await loadInventoryData();
     } catch (e) {
-      alert(e?.message || "Failed to add product.");
+      alert(e?.message || "Failed to add inventory item.");
     } finally {
       setSaving(false);
     }
   }
 
   async function onDelete(id) {
-    const ok = confirm("Delete this product?");
+    const ok = confirm("Delete this inventory item?");
     if (!ok) return;
 
     try {
-      await deleteProduct(id);
-      await loadProducts();
+      await deleteInventoryItem(id);
+      await loadInventoryData();
     } catch (e) {
-      alert(e?.message || "Failed to delete product.");
+      alert(e?.message || "Failed to delete inventory item.");
     }
   }
-
-  const inventoryStats = useMemo(() => {
-    const totalItems = rows.length;
-    const totalQty = rows.reduce((sum, r) => sum + Number(r.qty_on_hand || 0), 0);
-    const totalCostValue = rows.reduce(
-      (sum, r) => sum + Number(r.cost || 0) * Number(r.qty_on_hand || 0),
-      0
-    );
-    const totalRetailValue = rows.reduce(
-      (sum, r) => sum + Number(r.price || 0) * Number(r.qty_on_hand || 0),
-      0
-    );
-
-    return {
-      totalItems,
-      totalQty,
-      totalCostValue,
-      totalRetailValue,
-    };
-  }, [rows]);
 
   function onEdit(item) {
     setEditingItem(item);
@@ -312,11 +251,11 @@ export default function Inventory() {
   async function onSaveEdit(payload) {
     try {
       setEditSaving(true);
-      await updateProduct(payload.id, payload);
+      await updateInventoryItem(payload.id, payload);
       setEditingItem(null);
-      await loadProducts();
+      await loadInventoryData();
     } catch (e) {
-      alert(e?.message || "Failed to update product.");
+      alert(e?.message || "Failed to update inventory item.");
     } finally {
       setEditSaving(false);
     }
@@ -332,17 +271,25 @@ export default function Inventory() {
     setSortDirection("asc");
   }
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [inStockOnly, setInStockOnly] = useState(false);
-  const [sortBy, setSortBy] = useState("description");
-  const [sortDirection, setSortDirection] = useState("asc");
-  const [sourceFilter, setSourceFilter] = useState("");
-  const [conditionFilter, setConditionFilter] = useState("");
+  const inventoryStats = useMemo(() => {
+    const totalItems = rows.length;
+    const totalQty = rows.reduce((sum, r) => sum + Number(r.qty_on_hand || 0), 0);
+    const totalCostValue = rows.reduce(
+      (sum, r) => sum + Number(r.unit_cost || 0) * Number(r.qty_on_hand || 0),
+      0
+    );
+    const totalRetailValue = rows.reduce(
+      (sum, r) => sum + Number(r.asking_price || 0) * Number(r.qty_on_hand || 0),
+      0
+    );
 
-  function getName(row, key, nested) {
-    return row?.[key] ?? row?.[nested]?.name ?? "";
-  }
+    return {
+      totalItems,
+      totalQty,
+      totalCostValue,
+      totalRetailValue,
+    };
+  }, [rows]);
 
   const filteredRows = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -350,21 +297,21 @@ export default function Inventory() {
     return rows.filter((r) => {
       const categoryName = getName(r, "category_name", "category");
       const subcategoryName = getName(r, "subcategory_name", "subcategory");
-      const modelName = getName(r, "model_name", "model");
-      const variantName = getName(r, "variant_name", "variant");
+      const conditionName = getName(r, "condition_name", "condition");
       const statusName = getName(r, "status_name", "status");
       const sourceName = getName(r, "source_name", "source");
 
       const searchableText = [
         r.description,
-        r.name,
         r.sku,
+        r.device_label,
+        r.item_type,
         categoryName,
         subcategoryName,
-        modelName,
-        variantName,
+        conditionName,
         statusName,
         sourceName,
+        r.notes,
       ]
         .filter(Boolean)
         .join(" ")
@@ -387,22 +334,23 @@ export default function Inventory() {
       const getSortableValue = (row) => {
         switch (sortBy) {
           case "description":
-            return String(row.description ?? row.name ?? "").toLowerCase();
-
+            return String(row.description ?? "").toLowerCase();
+          case "itemType":
+            return String(row.item_type ?? "").toLowerCase();
           case "source":
             return String(getName(row, "source_name", "source") || "").toLowerCase();
-
+          case "condition":
+            return String(getName(row, "condition_name", "condition") || "").toLowerCase();
+          case "status":
+            return String(getName(row, "status_name", "status") || "").toLowerCase();
           case "cost":
-            return Number(row.cost || 0);
-
+            return Number(row.unit_cost || 0);
           case "price":
-            return Number(row.price || 0);
-
+            return Number(row.asking_price || 0);
           case "qty":
             return Number(row.qty_on_hand || 0);
-
           default:
-            return String(row.description ?? row.name ?? "").toLowerCase();
+            return String(row.description ?? "").toLowerCase();
         }
       };
 
@@ -424,8 +372,8 @@ export default function Inventory() {
   } else if (rows.length === 0) {
     tableContent = (
       <EmptyState
-        title="No products yet"
-        message="Add your first inventory item to start tracking stock, pricing, and catalog placement."
+        title="No inventory yet"
+        message="Add your first inventory item to start tracking devices, parts, costs, and stock."
       />
     );
   } else {
@@ -473,12 +421,12 @@ export default function Inventory() {
     <div className="page">
       <PageHeader
         title="Inventory"
-        subtitle="Add devices, parts, and repair stock with cleaner organization."
+        subtitle="Add devices, parts, finished products, and repair stock."
       />
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-label">Products</div>
+          <div className="stat-label">Items</div>
           <div className="stat-value">{inventoryStats.totalItems}</div>
         </div>
         <div className="stat-card">
@@ -500,29 +448,39 @@ export default function Inventory() {
           <div>
             <h3 className="card-title">Add Inventory Item</h3>
             <p className="card-subtitle">
-              Grouped by item details, catalog placement, and pricing.
+              Capture inventory details, classification, pricing, and stock in one place.
             </p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="section-title">Item Details</div>
+
           <div className="form-grid">
-            <div className="field-full">
-              <label htmlFor="description" className="label">
-                Description
+            <div>
+              <label htmlFor="itemType" className="label">
+                Item Type
               </label>
-              <textarea
-                id="description"
-                {...register("description", {
-                  required: "Description is required.",
-                  validate: (value) => value.trim() !== "" || "Description is required.",
-                })}
-                rows={3}
-                className="textarea"
-                placeholder="Example: iPod Classic 5th Gen, tested, screen scratched, working HDD"
+              <select id="itemType" {...register("itemType")} className="select">
+                <option value="donor_device">Donor Device</option>
+                <option value="part">Part</option>
+                <option value="finished_product">Finished Product</option>
+                <option value="supply">Supply</option>
+                <option value="tool">Tool</option>
+                <option value="accessory">Accessory</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="deviceLabel" className="label">
+                Device Label
+              </label>
+              <input
+                id="deviceLabel"
+                {...register("deviceLabel")}
+                className="input"
+                placeholder="Optional label like DONOR-001"
               />
-              <FieldError error={errors.description?.message} />
             </div>
 
             <div>
@@ -548,23 +506,54 @@ export default function Inventory() {
                   validate: (value) => {
                     if (value === "" || value == null) return "Quantity is required.";
                     if (!/^\d+$/.test(String(value))) {
-                      return "Qty must be a whole number ≥ 0.";
+                      return "Quantity must be a whole number ≥ 0.";
                     }
                     if (parseInt(value, 10) < 0) {
-                      return "Qty must be a whole number ≥ 0.";
+                      return "Quantity must be a whole number ≥ 0.";
                     }
                     return true;
                   },
                 })}
                 className="input"
-                placeholder="0"
+                placeholder="1"
                 inputMode="numeric"
               />
               <FieldError error={errors.qty?.message} />
             </div>
+
+            <div className="field-full">
+              <label htmlFor="description" className="label">
+                Description
+              </label>
+              <textarea
+                id="description"
+                {...register("description", {
+                  required: "Description is required.",
+                  validate: (value) => value.trim() !== "" || "Description is required.",
+                })}
+                rows={3}
+                className="textarea"
+                placeholder="Example: iPod Classic 5th Gen, tested, scratched faceplate, working HDD"
+              />
+              <FieldError error={errors.description?.message} />
+            </div>
+
+            <div className="field-full">
+              <label htmlFor="notes" className="label">
+                Notes
+              </label>
+              <textarea
+                id="notes"
+                {...register("notes")}
+                rows={3}
+                className="textarea"
+                placeholder="Condition notes, testing notes, source details, repair notes, etc."
+              />
+            </div>
           </div>
 
           <div className="section-title">Catalog Placement</div>
+
           <div className="form-grid">
             <div>
               <label htmlFor="categoryId" className="label">
@@ -594,44 +583,6 @@ export default function Inventory() {
                 {subcategories.map((sc) => (
                   <option key={sc.id} value={sc.id}>
                     {sc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="deviceModelId" className="label">
-                Model
-              </label>
-              <select
-                id="deviceModelId"
-                {...register("deviceModelId")}
-                className="select"
-                disabled={!categoryId}
-              >
-                <option value="">(none)</option>
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="variantId" className="label">
-                Variant
-              </label>
-              <select
-                id="variantId"
-                {...register("variantId")}
-                className="select"
-                disabled={!deviceModelId}
-              >
-                <option value="">(none)</option>
-                {variants.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
                   </option>
                 ))}
               </select>
@@ -681,14 +632,15 @@ export default function Inventory() {
           </div>
 
           <div className="section-title">Pricing</div>
+
           <div className="form-grid">
             <div>
-              <label htmlFor="cost" className="label">
+              <label htmlFor="unitCost" className="label">
                 Cost
               </label>
               <input
-                id="cost"
-                {...register("cost", {
+                id="unitCost"
+                {...register("unitCost", {
                   required: "Cost is required.",
                   validate: (value) => {
                     if (value === "" || value == null) return "Cost is required.";
@@ -703,7 +655,7 @@ export default function Inventory() {
                 placeholder="0.00"
                 inputMode="decimal"
               />
-              <FieldError error={errors.cost?.message} />
+              <FieldError error={errors.unitCost?.message} />
             </div>
 
             <div>
@@ -718,34 +670,34 @@ export default function Inventory() {
                 })}
               >
                 <option value="true">For Sale</option>
-                <option value="false">Internal Use / Tool / Part</option>
+                <option value="false">Internal Use / Non-Sale</option>
               </select>
             </div>
 
             <div>
-              <label htmlFor="price" className="label">
-                Price
+              <label htmlFor="askingPrice" className="label">
+                Asking Price
               </label>
               <input
-                id="price"
-                {...register("price", {
+                id="askingPrice"
+                {...register("askingPrice", {
                   validate: (value) => {
                     if (!isForSale) {
                       if (value === "" || value == null) return true;
                       const num = Number(value);
                       if (Number.isNaN(num) || num < 0) {
-                        return "Price must be blank or a valid number ≥ 0.";
+                        return "Asking price must be blank or a valid number ≥ 0.";
                       }
                       return true;
                     }
 
                     if (value === "" || value == null) {
-                      return "Price is required for sale items.";
+                      return "Asking price is required for sale items.";
                     }
 
                     const num = Number(value);
                     if (Number.isNaN(num) || num < 0) {
-                      return "Price must be a valid number ≥ 0.";
+                      return "Asking price must be a valid number ≥ 0.";
                     }
 
                     return true;
@@ -755,16 +707,16 @@ export default function Inventory() {
                 placeholder="0.00"
                 inputMode="decimal"
               />
-              <FieldError error={errors.price?.message} />
+              <FieldError error={errors.askingPrice?.message} />
             </div>
 
             <div className="inventory-summary-box">
               <div className="inventory-summary-row">
-                <span>Projected margin</span>
+                <span>Projected Margin</span>
                 <strong>${money(watchedPrice - watchedCost)}</strong>
               </div>
               <div className="inventory-summary-row">
-                <span>Qty value</span>
+                <span>Qty Value</span>
                 <strong>${money(watchedPrice * watchedQty)}</strong>
               </div>
             </div>
@@ -780,7 +732,7 @@ export default function Inventory() {
               Clear
             </button>
             <button type="submit" className="button-primary" disabled={saving}>
-              {saving ? "Saving..." : "Add Product"}
+              {saving ? "Saving..." : "Add Inventory Item"}
             </button>
           </div>
         </form>
@@ -790,15 +742,16 @@ export default function Inventory() {
         <div className="card-header-row">
           <div>
             <h3 className="card-title">Current Inventory</h3>
-            <p className="card-subtitle">Review current stock, pricing, and catalog assignments.</p>
+            <p className="card-subtitle">
+              Review stock, pricing, category placement, and source information.
+            </p>
           </div>
-          <div className="count-badge">
-            <div className="count-badge">{inventoryCountLabel}</div>{" "}
-          </div>
+          <div className="count-badge">{inventoryCountLabel}</div>
         </div>
 
         {tableContent}
       </div>
+
       <InventoryEditModal
         isOpen={!!editingItem}
         item={editingItem}
